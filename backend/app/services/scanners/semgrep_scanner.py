@@ -43,7 +43,7 @@ def run_semgrep_scan(target_path: str) -> list[dict]:
 
     try:
         result = subprocess.run(
-            [semgrep_cmd, "--config=auto", "--json", "--quiet", str(path)],
+            [semgrep_cmd, "--config=auto", "--no-git-ignore", "--json", "--quiet", str(path)],
             capture_output=True,
             text=True,
             timeout=300,  # 5 minute hard timeout
@@ -55,7 +55,6 @@ def run_semgrep_scan(target_path: str) -> list[dict]:
 
     stdout = result.stdout or ""
     if not stdout.strip():
-        # Semgrep returns code 0 or 1 on findings; if stdout is empty, check stderr
         if result.returncode not in (0, 1):
             raise RuntimeError(f"Semgrep failed with code {result.returncode}: {result.stderr}")
         return []
@@ -78,6 +77,11 @@ def run_semgrep_scan(target_path: str) -> list[dict]:
     for item in data.get("results", []):
         extra = item.get("extra", {})
         raw_severity = extra.get("severity", "INFO")
+        raw_path = item.get("path", "")
+        try:
+            clean_file_path = str(Path(raw_path).relative_to(path)).replace("\\", "/")
+        except ValueError:
+            clean_file_path = str(raw_path).replace("\\", "/")
 
         findings.append({
             "scanner": "semgrep",
@@ -85,7 +89,7 @@ def run_semgrep_scan(target_path: str) -> list[dict]:
             "title": extra.get("message", "Semgrep finding")[:200],
             "description": extra.get("message"),
             "severity": SEVERITY_MAP.get(raw_severity, "low"),
-            "file_path": item.get("path"),
+            "file_path": clean_file_path,
             "start_line": item.get("start", {}).get("line"),
             "end_line": item.get("end", {}).get("line"),
         })

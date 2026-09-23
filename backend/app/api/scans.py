@@ -1,9 +1,9 @@
 from datetime import datetime
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -15,6 +15,7 @@ from app.models.user import User
 from app.schemas.finding import FindingResponse
 from app.schemas.scan import ScanResponse
 from app.services.scanners.semgrep_scanner import run_semgrep_scan
+from app.services.scanners.trivy_scanner import run_trivy_scan
 
 router = APIRouter(tags=["scans"])
 
@@ -22,6 +23,7 @@ router = APIRouter(tags=["scans"])
 @router.post("/api/projects/{project_id}/scans", response_model=ScanResponse, status_code=status.HTTP_201_CREATED)
 def create_scan(
     project_id: UUID,
+    scanner: Optional[str] = Query("all", description="Scanner type: 'all', 'semgrep', or 'trivy'"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -43,24 +45,45 @@ def create_scan(
                 detail="No uploaded source found for this project. Upload a project archive first.",
             )
 
+    selected_scanner = scanner.lower() if scanner else "all"
+    if selected_scanner not in ("all", "semgrep", "trivy"):
+        raise HTTPException(status_code=400, detail="Invalid scanner. Choose 'all', 'semgrep', or 'trivy'.")
+
     scan = Scan(
         project_id=project.id,
         status="running",
-        scanner="semgrep",
+        scanner=selected_scanner,
         started_at=datetime.utcnow(),
     )
     db.add(scan)
     db.commit()
     db.refresh(scan)
 
-    try:
-        raw_findings = run_semgrep_scan(str(target_path))
-    except RuntimeError as e:
+    raw_findings = []
+    errors = []
+
+    # 1. Run Semgrep SAST if selected
+    if selected_scanner in ("all", "semgrep"):
+        try:
+            semgrep_findings = run_semgrep_scan(str(target_path))
+            raw_findings.extend(semgrep_findings)
+        except Exception as e:
+            errors.append(f"Semgrep: {str(e)}")
+
+    # 2. Run Trivy SCA if selected
+    if selected_scanner in ("all", "trivy"):
+        try:
+            trivy_findings = run_trivy_scan(str(target_path))
+            raw_findings.extend(trivy_findings)
+        except Exception as e:
+            errors.append(f"Trivy: {str(e)}")
+
+    if errors and not raw_findings and selected_scanner != "all":
         scan.status = "failed"
         scan.completed_at = datetime.utcnow()
-        scan.summary = f"Scan failed: {str(e)}"
+        scan.summary = " | ".join(errors)
         db.commit()
-        raise HTTPException(status_code=500, detail=f"Scan failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=scan.summary)
 
     critical = sum(1 for f in raw_findings if f.get("severity") == "critical")
     high = sum(1 for f in raw_findings if f.get("severity") == "high")
@@ -68,13 +91,17 @@ def create_scan(
     low = sum(1 for f in raw_findings if f.get("severity") in ("low", "informational"))
     total = len(raw_findings)
 
-    # Security score out of 100
+    # Security score calculation (0 - 100)
     penalty = (critical * 25) + (high * 15) + (medium * 5) + (low * 1)
     score = max(0, 100 - penalty)
 
     for f in raw_findings:
         finding = Finding(scan_id=scan.id, **f)
         db.add(finding)
+
+    summary_text = f"Scan ({selected_scanner}) completed with {total} finding(s) ({critical} critical, {high} high, {medium} medium, {low} low)."
+    if errors:
+        summary_text += f" (Warnings: {'; '.join(errors)})"
 
     scan.status = "completed"
     scan.critical_count = critical
@@ -83,7 +110,7 @@ def create_scan(
     scan.low_count = low
     scan.total_findings = total
     scan.security_score = score
-    scan.summary = f"Semgrep scan completed with {total} finding(s) ({critical} critical, {high} high, {medium} medium, {low} low)."
+    scan.summary = summary_text
     scan.completed_at = datetime.utcnow()
 
     db.commit()

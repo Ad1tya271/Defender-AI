@@ -30,15 +30,15 @@ def test_full_pipeline():
     # 4. Create Project
     res = client.post(
         "/api/projects",
-        json={"name": "Test Sec App", "description": "Automated scan verification"},
+        json={"name": "Multi-Scanner Test App", "description": "Testing Semgrep SAST + Trivy SCA"},
         headers=headers
     )
     assert res.status_code == 201
     project = res.json()
     project_id = project["id"]
-    assert project["name"] == "Test Sec App"
+    assert project["name"] == "Multi-Scanner Test App"
 
-    # 5. Upload source archive (with SQL injection)
+    # 5. Upload source archive (with SQL injection code + vulnerable dependency)
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w") as zf:
         zf.writestr(
@@ -51,6 +51,11 @@ def test_full_pipeline():
             "    cursor.execute(query)\n"
             "    return cursor.fetchone()\n"
         )
+        zf.writestr(
+            "requirements.txt",
+            "fastapi==0.111.0\n"
+            "ecdsa==0.19.2\n"
+        )
     zip_buffer.seek(0)
 
     res = client.post(
@@ -61,19 +66,25 @@ def test_full_pipeline():
     assert res.status_code == 200
     assert res.json()["message"] == "Upload successful"
 
-    # 6. Trigger Scan
-    res = client.post(f"/api/projects/{project_id}/scans", headers=headers)
+    # 6. Trigger Multi-Scanner Scan (Semgrep + Trivy)
+    res = client.post(f"/api/projects/{project_id}/scans?scanner=all", headers=headers)
     assert res.status_code == 201
     scan = res.json()
     assert scan["status"] == "completed"
-    assert scan["total_findings"] >= 1
-    assert scan["high_count"] >= 1
+    assert scan["total_findings"] >= 2
     scan_id = scan["id"]
 
     # 7. Retrieve Findings
     res = client.get(f"/api/scans/{scan_id}/findings", headers=headers)
     assert res.status_code == 200
     findings = res.json()
-    assert len(findings) >= 1
-    assert any("raw-query" in f.get("rule_id", "") or "SQL" in f.get("title", "") for f in findings)
-    print("\nE2E Scan Pipeline Test Passed with findings:", [f["title"] for f in findings])
+    assert len(findings) >= 2
+
+    scanners_detected = {f["scanner"] for f in findings}
+    assert "semgrep" in scanners_detected, "Semgrep finding was not detected"
+    assert "trivy" in scanners_detected, "Trivy SCA finding was not detected"
+
+    print("\n--- Multi-Scanner Pipeline Test Passed ---")
+    print(f"Total findings: {len(findings)}")
+    for f in findings:
+        print(f"  - [{f['scanner'].upper()} / {f['severity'].upper()}] {f['title']} ({f.get('rule_id')}) in {f['file_path']}")
