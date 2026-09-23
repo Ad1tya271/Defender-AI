@@ -1,5 +1,7 @@
-import subprocess
 import json
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 SEVERITY_MAP = {
@@ -7,6 +9,26 @@ SEVERITY_MAP = {
     "WARNING": "medium",
     "INFO": "low",
 }
+
+
+def get_semgrep_cmd() -> str:
+    """Finds the semgrep executable across virtual environment or PATH."""
+    venv_dir = Path(sys.executable).parent
+    candidates = [
+        venv_dir / "semgrep.exe",
+        venv_dir / "semgrep",
+        Path(sys.prefix) / "Scripts" / "semgrep.exe",
+        Path(sys.prefix) / "bin" / "semgrep",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
+
+    found = shutil.which("semgrep")
+    if found:
+        return found
+    return "semgrep"
+
 
 def run_semgrep_scan(target_path: str) -> list[dict]:
     """
@@ -17,9 +39,11 @@ def run_semgrep_scan(target_path: str) -> list[dict]:
     if not path.exists():
         raise RuntimeError(f"Scan target does not exist: {target_path}")
 
+    semgrep_cmd = get_semgrep_cmd()
+
     try:
         result = subprocess.run(
-            ["semgrep", "--config=auto", "--json", str(path)],
+            [semgrep_cmd, "--config=auto", "--json", "--quiet", str(path)],
             capture_output=True,
             text=True,
             timeout=300,  # 5 minute hard timeout
@@ -27,15 +51,28 @@ def run_semgrep_scan(target_path: str) -> list[dict]:
     except subprocess.TimeoutExpired:
         raise RuntimeError("Semgrep scan timed out after 5 minutes")
     except FileNotFoundError:
-        raise RuntimeError("Semgrep is not installed or not on PATH")
+        raise RuntimeError(f"Semgrep is not installed or not on PATH ({semgrep_cmd})")
 
-    if not result.stdout:
-        raise RuntimeError(f"Semgrep produced no output. stderr: {result.stderr}")
+    stdout = result.stdout or ""
+    if not stdout.strip():
+        # Semgrep returns code 0 or 1 on findings; if stdout is empty, check stderr
+        if result.returncode not in (0, 1):
+            raise RuntimeError(f"Semgrep failed with code {result.returncode}: {result.stderr}")
+        return []
 
     try:
-        data = json.loads(result.stdout)
+        data = json.loads(stdout)
     except json.JSONDecodeError:
-        raise RuntimeError("Failed to parse Semgrep JSON output")
+        # Fallback: extract substring between first { and last }
+        start_idx = stdout.find("{")
+        end_idx = stdout.rfind("}")
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            try:
+                data = json.loads(stdout[start_idx : end_idx + 1])
+            except json.JSONDecodeError:
+                raise RuntimeError(f"Failed to parse Semgrep JSON output: {stdout[:200]}")
+        else:
+            raise RuntimeError(f"Failed to parse Semgrep output: {stdout[:200]}")
 
     findings = []
     for item in data.get("results", []):
