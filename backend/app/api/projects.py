@@ -10,8 +10,9 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.database.session import get_db
 from app.models.project import Project
+from app.models.scan import Scan
 from app.models.user import User
-from app.schemas.project import ProjectCreate, ProjectResponse
+from app.schemas.project import ProjectCreate, ProjectResponse, ProjectStatsResponse
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 WORKSPACE_ROOT = Path("scan-workspaces")
@@ -39,7 +40,7 @@ def list_projects(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return db.query(Project).filter(Project.owner_id == current_user.id).all()
+    return db.query(Project).filter(Project.owner_id == current_user.id).order_by(Project.created_at.desc()).all()
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)
@@ -56,6 +57,44 @@ def get_project(
     return project
 
 
+@router.get("/{project_id}/stats", response_model=ProjectStatsResponse)
+def get_project_stats(
+    project_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if project.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this project")
+
+    total_scans = db.query(Scan).filter(Scan.project_id == project_id).count()
+    latest_scan = (
+        db.query(Scan)
+        .filter(Scan.project_id == project_id)
+        .order_by(Scan.created_at.desc())
+        .first()
+    )
+
+    stats = {
+        "project_id": project.id,
+        "name": project.name,
+        "total_scans": total_scans,
+        "latest_scan_id": latest_scan.id if latest_scan else None,
+        "latest_scan_status": latest_scan.status if latest_scan else None,
+        "latest_security_score": latest_scan.security_score if latest_scan else None,
+        "critical_count": latest_scan.critical_count if latest_scan else 0,
+        "high_count": latest_scan.high_count if latest_scan else 0,
+        "medium_count": latest_scan.medium_count if latest_scan else 0,
+        "low_count": latest_scan.low_count if latest_scan else 0,
+        "total_findings": latest_scan.total_findings if latest_scan else 0,
+        "last_scanned_at": latest_scan.completed_at or latest_scan.created_at if latest_scan else None,
+    }
+
+    return ProjectStatsResponse(**stats)
+
+
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(
     project_id: UUID,
@@ -67,6 +106,12 @@ def delete_project(
         raise HTTPException(status_code=404, detail="Project not found")
     if project.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to delete this project")
+
+    # Clean project workspace on disk
+    workspace_dir = WORKSPACE_ROOT / str(project_id)
+    if workspace_dir.exists():
+        shutil.rmtree(workspace_dir, ignore_errors=True)
+
     db.delete(project)
     db.commit()
     return None

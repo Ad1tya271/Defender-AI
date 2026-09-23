@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, projects, scans
+from app.api import auth, projects, scans, findings
 
 app = FastAPI(title="DefenderAI API")
 
@@ -16,6 +16,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(scans.router)
+app.include_router(findings.router)
 
 @app.get("/health")
 def health_check():

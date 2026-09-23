@@ -7,6 +7,7 @@ from app.main import app
 
 client = TestClient(app)
 
+
 def test_full_pipeline():
     # 1. Health check
     res = client.get("/health")
@@ -66,12 +67,13 @@ def test_full_pipeline():
     assert res.status_code == 200
     assert res.json()["message"] == "Upload successful"
 
-    # 6. Trigger Multi-Scanner Scan (Semgrep + Trivy)
-    res = client.post(f"/api/projects/{project_id}/scans?scanner=all", headers=headers)
+    # 6. Trigger Multi-Scanner Scan (Semgrep + Trivy via JSON body)
+    res = client.post(f"/api/projects/{project_id}/scans", json={"scanner": "all"}, headers=headers)
     assert res.status_code == 201
     scan = res.json()
     assert scan["status"] == "completed"
     assert scan["total_findings"] >= 2
+    assert scan["high_count"] >= 2
     scan_id = scan["id"]
 
     # 7. Retrieve Findings
@@ -80,11 +82,53 @@ def test_full_pipeline():
     findings = res.json()
     assert len(findings) >= 2
 
-    scanners_detected = {f["scanner"] for f in findings}
-    assert "semgrep" in scanners_detected, "Semgrep finding was not detected"
-    assert "trivy" in scanners_detected, "Trivy SCA finding was not detected"
+    # 8. Test Finding Filters (by severity, scanner, search)
+    res_high = client.get(f"/api/scans/{scan_id}/findings?severity=high", headers=headers)
+    assert res_high.status_code == 200
+    assert len(res_high.json()) >= 2
 
-    print("\n--- Multi-Scanner Pipeline Test Passed ---")
-    print(f"Total findings: {len(findings)}")
-    for f in findings:
-        print(f"  - [{f['scanner'].upper()} / {f['severity'].upper()}] {f['title']} ({f.get('rule_id')}) in {f['file_path']}")
+    res_semgrep = client.get(f"/api/scans/{scan_id}/findings?scanner=semgrep", headers=headers)
+    assert res_semgrep.status_code == 200
+    assert any("vulnerable.py" in f["file_path"] for f in res_semgrep.json())
+
+    res_trivy = client.get(f"/api/scans/{scan_id}/findings?scanner=trivy", headers=headers)
+    assert res_trivy.status_code == 200
+    assert any("requirements.txt" in f["file_path"] for f in res_trivy.json())
+
+    res_search = client.get(f"/api/scans/{scan_id}/findings?search=SQL", headers=headers)
+    assert res_search.status_code == 200
+    assert len(res_search.json()) >= 1
+
+    # 9. Test Single Finding Detail & Code Snippet Extraction
+    semgrep_finding = next(f for f in findings if f["scanner"] == "semgrep")
+    res_detail = client.get(f"/api/findings/{semgrep_finding['id']}", headers=headers)
+    assert res_detail.status_code == 200
+    detail = res_detail.json()
+    assert detail["id"] == semgrep_finding["id"]
+    assert detail["code_snippet"] is not None
+    assert "SELECT * FROM users" in detail["code_snippet"]
+
+    res_snippet = client.get(f"/api/findings/{semgrep_finding['id']}/snippet", headers=headers)
+    assert res_snippet.status_code == 200
+    assert "SELECT * FROM users" in res_snippet.json()["code_snippet"]
+
+    # 10. Test Project Stats Dashboard Endpoint
+    res_stats = client.get(f"/api/projects/{project_id}/stats", headers=headers)
+    assert res_stats.status_code == 200
+    stats = res_stats.json()
+    assert stats["project_id"] == project_id
+    assert stats["total_scans"] == 1
+    assert stats["latest_scan_id"] == scan_id
+    assert stats["latest_security_score"] <= 100
+    assert stats["high_count"] >= 2
+    assert stats["total_findings"] >= 2
+
+    # 11. Test Scan Deletion
+    res_del_scan = client.delete(f"/api/scans/{scan_id}", headers=headers)
+    assert res_del_scan.status_code == 204
+
+    # Verify findings cascade deleted
+    res_after_del = client.get(f"/api/scans/{scan_id}/findings", headers=headers)
+    assert res_after_del.status_code == 404
+
+    print("\n--- All Comprehensive API & Multi-Scanner Tests Passed Cleanly ---")

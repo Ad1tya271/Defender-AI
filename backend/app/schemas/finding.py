@@ -3,6 +3,7 @@ from uuid import UUID
 from datetime import datetime
 from typing import Optional
 
+
 class FindingResponse(BaseModel):
     id: UUID
     scan_id: UUID
@@ -18,3 +19,7 @@ class FindingResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class FindingDetailResponse(FindingResponse):
+    code_snippet: Optional[str] = None

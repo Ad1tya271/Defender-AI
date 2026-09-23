@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -12,7 +12,6 @@ from app.models.finding import Finding
 from app.models.project import Project
 from app.models.scan import Scan
 from app.models.user import User
-from app.schemas.finding import FindingResponse
 from app.schemas.scan import ScanResponse
 from app.services.scanners.semgrep_scanner import run_semgrep_scan
 from app.services.scanners.trivy_scanner import run_trivy_scan
@@ -23,7 +22,8 @@ router = APIRouter(tags=["scans"])
 @router.post("/api/projects/{project_id}/scans", response_model=ScanResponse, status_code=status.HTTP_201_CREATED)
 def create_scan(
     project_id: UUID,
-    scanner: Optional[str] = Query("all", description="Scanner type: 'all', 'semgrep', or 'trivy'"),
+    scanner: Optional[str] = Query(None, description="Scanner type: 'all', 'semgrep', or 'trivy'"),
+    body: Optional[dict] = Body(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -45,7 +45,10 @@ def create_scan(
                 detail="No uploaded source found for this project. Upload a project archive first.",
             )
 
-    selected_scanner = scanner.lower() if scanner else "all"
+    # Determine requested scanner (from query param or JSON body)
+    body_scanner = body.get("scanner") if isinstance(body, dict) else None
+    selected_scanner = (scanner or body_scanner or "all").lower()
+
     if selected_scanner not in ("all", "semgrep", "trivy"):
         raise HTTPException(status_code=400, detail="Invalid scanner. Choose 'all', 'semgrep', or 'trivy'.")
 
@@ -152,11 +155,11 @@ def get_project_scan(
     return scan
 
 
-@router.get("/api/scans/{scan_id}/findings", response_model=List[FindingResponse])
-@router.get("/api/projects/{project_id}/scans/{scan_id}/findings", response_model=List[FindingResponse])
-def get_scan_findings(
+@router.delete("/api/scans/{scan_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/api/projects/{project_id}/scans/{scan_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_scan(
     scan_id: UUID,
-    project_id: UUID = None,
+    project_id: Optional[UUID] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -166,6 +169,10 @@ def get_scan_findings(
 
     project = db.query(Project).filter(Project.id == scan.project_id).first()
     if not project or project.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to view this scan")
+        raise HTTPException(status_code=403, detail="Not authorized to delete this scan")
 
-    return db.query(Finding).filter(Finding.scan_id == scan_id).all()
+    # Cascade delete findings
+    db.query(Finding).filter(Finding.scan_id == scan_id).delete()
+    db.delete(scan)
+    db.commit()
+    return None
