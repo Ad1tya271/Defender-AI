@@ -42,7 +42,16 @@ def run_trivy_scan(target_path: str) -> List[Dict[str, Any]]:
 
     try:
         result = subprocess.run(
-            [trivy_cmd, "fs", "--format", "json", "--quiet", str(path)],
+            [
+                trivy_cmd,
+                "fs",
+                "--format",
+                "json",
+                "--quiet",
+                "--skip-db-update",
+                "--skip-check-update",
+                str(path),
+            ],
             capture_output=True,
             text=True,
             timeout=300,  # 5 minute hard timeout
