@@ -26,31 +26,68 @@ export default function ProjectsPage() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
 
-  async function loadProjects() {
-    try {
-      setLoading(true);
-      setError("");
+  useEffect(() => {
+    let cancelled = false;
 
+    async function loadProjects() {
       const token = localStorage.getItem("access_token");
 
       if (!token) {
-        throw new Error("You are not logged in");
+        router.replace("/login");
+        return;
       }
 
+      try {
+        const data = await getProjects(token);
+
+        if (cancelled) {
+          return;
+        }
+
+        setProjects(data);
+      } catch (err) {
+        if (cancelled) {
+          return;
+        }
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load projects"
+        );
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadProjects();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  async function loadProjectsAfterCreate() {
+    const token = localStorage.getItem("access_token");
+
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
+
+    try {
       const data = await getProjects(token);
       setProjects(data);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to load projects"
+        err instanceof Error
+          ? err.message
+          : "Failed to load projects"
       );
-    } finally {
-      setLoading(false);
     }
   }
-
-  useEffect(() => {
-    loadProjects();
-  }, []);
 
   async function handleCreateProject(
     event: React.FormEvent<HTMLFormElement>
@@ -69,19 +106,26 @@ export default function ProjectsPage() {
       const token = localStorage.getItem("access_token");
 
       if (!token) {
-        throw new Error("You are not logged in");
+        router.replace("/login");
+        return;
       }
 
-      await createProject(token, name, description);
+      await createProject(
+        token,
+        name.trim(),
+        description.trim()
+      );
 
       setName("");
       setDescription("");
       setShowCreateForm(false);
 
-      await loadProjects();
+      await loadProjectsAfterCreate();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to create project"
+        err instanceof Error
+          ? err.message
+          : "Failed to create project"
       );
     } finally {
       setCreating(false);
@@ -211,7 +255,9 @@ export default function ProjectsPage() {
 
           <span className="text-sm text-gray-500">
             {projects.length}{" "}
-            {projects.length === 1 ? "project" : "projects"}
+            {projects.length === 1
+              ? "project"
+              : "projects"}
           </span>
         </div>
 
