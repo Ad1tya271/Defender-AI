@@ -10,7 +10,6 @@ DefenderAI is a unified platform that lets developers upload a source code proje
 ## Table of Contents
 
 - [Problem Statement](#problem-statement)
-- [Current Status](#current-status)
 - [Architecture](#architecture)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
@@ -26,32 +25,6 @@ DefenderAI is a unified platform that lets developers upload a source code proje
 Developers routinely introduce security vulnerabilities through insecure coding practices, vulnerable third-party dependencies, and lack of security expertise. Existing static analysis and dependency-scanning tools surface these issues but often produce output that is difficult for non-specialists to interpret and act on.
 
 DefenderAI combines traditional security scanning (SAST + SCA) with a locally hosted AI assistant that explains findings in plain language and proposes remediation — while keeping a hard separation between **what a scanner found**, **what the AI claims**, and **what has actually been verified**. An AI-suggested fix is never presented as correct or secure merely because the AI produced it; every proposed fix must pass an independent re-scan before it is considered resolved.
-
----
-
-## Current Status
-
-This project is under active development. Rough completion against the original project plan:
-
-| Area | Status |
-|---|---|
-| Backend foundation (FastAPI, PostgreSQL, Alembic) | ✅ Complete |
-| Authentication (JWT, bcrypt password hashing) | ✅ Complete |
-| Project management (CRUD, ownership authorization) | ✅ Complete |
-| Secure project upload (zip, path-traversal protected) | ✅ Complete |
-| Static analysis scanning (Semgrep) | ✅ Complete |
-| Dependency/vulnerability scanning (Trivy) | ✅ Complete |
-| Unified findings model (filtering, search, code snippets) | ✅ Complete |
-| Frontend — auth, dashboard, project list/detail shell | 🟡 In progress (UI built, not fully wired to scan/findings APIs) |
-| AI-assisted finding explanations (Ollama) | ⬜ Not started |
-| AI-assisted remediation suggestions | ⬜ Not started |
-| Secure verification workflow (patch → re-scan → compare) | ⬜ Not started |
-| Docker-based scan isolation | ⬜ Not started |
-| Automated test suite | 🟡 Minimal (one end-to-end pipeline test) |
-
-**What works today:** a user can register, log in, create a project, upload a `.zip` of source code, trigger a scan that runs both Semgrep and Trivy, and retrieve normalized findings — including severity breakdown, a computed security score, and extracted code snippets around each finding.
-
-**What's next:** wiring the frontend to these existing endpoints, then building the local LLM integration (explain + remediate) and the patch verification loop that differentiates this from a plain scanner wrapper.
 
 ---
 
