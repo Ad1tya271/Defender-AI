@@ -279,3 +279,78 @@ export async function getFindingSnippet(
 
   return handleResponse(response);
 }
+// =========================
+// Upload
+// =========================
+
+export async function uploadProject(
+  token: string,
+  projectId: string,
+  file: File
+) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(
+    `${API_URL}/api/projects/${projectId}/upload`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    }
+  );
+
+  return handleResponse(response);
+}
+
+// =========================
+// AI: Explain / Remediate
+// =========================
+
+export type FindingExplanation = {
+  root_cause: string;
+  attack_vector: string;
+  impact: string;
+  recommendation: string;
+};
+
+export type RemediationSuggestion = {
+  explanation: string;
+  patch: string;
+};
+
+export async function explainFinding(
+  token: string,
+  findingId: string
+): Promise<FindingExplanation> {
+  const response = await fetch(
+    `${API_URL}/api/findings/${findingId}/explain`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return handleResponse(response);
+}
+
+export async function remediateFinding(
+  token: string,
+  findingId: string
+): Promise<RemediationSuggestion> {
+  const response = await fetch(
+    `${API_URL}/api/findings/${findingId}/remediate`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return handleResponse(response);
+}

@@ -8,10 +8,15 @@ import {
   getScans,
   getFindings,
   getFinding,
+  uploadProject,
+  explainFinding,
+  remediateFinding,
   type Scan,
   type ScannerType,
   type Finding,
   type FindingDetail,
+  type FindingExplanation,
+  type RemediationSuggestion,
 } from "@/lib/api";
 
 interface Project {
@@ -41,6 +46,15 @@ export default function ProjectPage() {
   const [startingScan, setStartingScan] = useState(false);
 
   // =========================
+  // Upload state
+  // =========================
+
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [uploadSuccess, setUploadSuccess] = useState("");
+
+  // =========================
   // Findings state
   // =========================
 
@@ -54,6 +68,22 @@ export default function ProjectPage() {
     useState(false);
 
   const [findingError, setFindingError] = useState("");
+
+  // =========================
+  // AI: Explain / Remediate state
+  // =========================
+
+  const [explanation, setExplanation] =
+    useState<FindingExplanation | null>(null);
+  const [loadingExplanation, setLoadingExplanation] =
+    useState(false);
+  const [explainError, setExplainError] = useState("");
+
+  const [remediation, setRemediation] =
+    useState<RemediationSuggestion | null>(null);
+  const [loadingRemediation, setLoadingRemediation] =
+    useState(false);
+  const [remediateError, setRemediateError] = useState("");
 
   // Get project ID from URL
   const projectId =
@@ -184,6 +214,46 @@ export default function ProjectPage() {
   }, [projectId, router]);
 
   // =========================
+  // Upload project source
+  // =========================
+
+  async function handleUpload() {
+    if (!uploadFile || !projectId || projectId === "projects") {
+      return;
+    }
+
+    try {
+      setUploading(true);
+      setUploadError("");
+      setUploadSuccess("");
+
+      const token = localStorage.getItem("access_token");
+
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
+      await uploadProject(token, projectId, uploadFile);
+
+      setUploadSuccess(
+        "Upload successful. You can now run a scan."
+      );
+      setUploadFile(null);
+    } catch (err) {
+      console.error("Failed to upload project:", err);
+
+      setUploadError(
+        err instanceof Error
+          ? err.message
+          : "Failed to upload project"
+      );
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  // =========================
   // Start scan
   // =========================
 
@@ -291,6 +361,12 @@ export default function ProjectPage() {
       return;
     }
 
+    // Reset AI panels whenever a different finding is selected
+    setExplanation(null);
+    setExplainError("");
+    setRemediation(null);
+    setRemediateError("");
+
     try {
       setLoadingFindingDetail(true);
       setFindingError("");
@@ -314,6 +390,84 @@ export default function ProjectPage() {
       );
     } finally {
       setLoadingFindingDetail(false);
+    }
+  }
+
+  // =========================
+  // AI: Explain finding
+  // =========================
+
+  async function handleExplainFinding() {
+    if (!selectedFinding) {
+      return;
+    }
+
+    try {
+      setLoadingExplanation(true);
+      setExplainError("");
+
+      const token = localStorage.getItem("access_token");
+
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
+      const result = await explainFinding(
+        token,
+        selectedFinding.id
+      );
+
+      setExplanation(result);
+    } catch (err) {
+      console.error("Failed to explain finding:", err);
+
+      setExplainError(
+        err instanceof Error
+          ? err.message
+          : "Failed to get AI explanation"
+      );
+    } finally {
+      setLoadingExplanation(false);
+    }
+  }
+
+  // =========================
+  // AI: Suggest fix
+  // =========================
+
+  async function handleSuggestFix() {
+    if (!selectedFinding) {
+      return;
+    }
+
+    try {
+      setLoadingRemediation(true);
+      setRemediateError("");
+
+      const token = localStorage.getItem("access_token");
+
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
+      const result = await remediateFinding(
+        token,
+        selectedFinding.id
+      );
+
+      setRemediation(result);
+    } catch (err) {
+      console.error("Failed to generate remediation:", err);
+
+      setRemediateError(
+        err instanceof Error
+          ? err.message
+          : "Failed to generate AI remediation"
+      );
+    } finally {
+      setLoadingRemediation(false);
     }
   }
 
@@ -460,6 +614,62 @@ export default function ProjectPage() {
             project.created_at
           ).toLocaleDateString()}
         </div>
+      </div>
+
+      {/* Upload Source */}
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Project Source
+            </h2>
+
+            <p className="mt-1 text-sm text-gray-500">
+              Upload a .zip archive of the source code to scan.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+
+            <input
+              type="file"
+              accept=".zip"
+              onChange={(event) =>
+                setUploadFile(
+                  event.target.files?.[0] ?? null
+                )
+              }
+              disabled={uploading}
+              className="block text-sm text-gray-600 file:mr-4 file:rounded-lg file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200"
+            />
+
+            <button
+              onClick={handleUpload}
+              disabled={uploading || !uploadFile}
+              className="rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {uploading ? "Uploading..." : "Upload"}
+            </button>
+
+          </div>
+        </div>
+
+        {uploadSuccess && (
+          <div className="mt-5 rounded-lg border border-green-200 bg-green-50 p-4">
+            <p className="text-sm text-green-700">
+              {uploadSuccess}
+            </p>
+          </div>
+        )}
+
+        {uploadError && (
+          <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4">
+            <p className="text-sm text-red-700">
+              {uploadError}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Scan Controls */}
@@ -978,6 +1188,61 @@ export default function ProjectPage() {
                       </div>
                     </div>
 
+                    {/* AI Actions */}
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        onClick={handleExplainFinding}
+                        disabled={loadingExplanation}
+                        className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {loadingExplanation
+                          ? "Analyzing..."
+                          : "Explain with AI"}
+                      </button>
+
+                      <button
+                        onClick={handleSuggestFix}
+                        disabled={loadingRemediation}
+                        className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {loadingRemediation
+                          ? "Generating fix..."
+                          : "Suggest Fix"}
+                      </button>
+                    </div>
+
+                    {loadingExplanation && (
+                      <p className="text-xs text-gray-500">
+                        The local AI model is analyzing this
+                        finding — this can take up to a few
+                        minutes on the first run.
+                      </p>
+                    )}
+
+                    {explainError && (
+                      <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                        <p className="text-sm text-red-700">
+                          {explainError}
+                        </p>
+                      </div>
+                    )}
+
+                    {loadingRemediation && (
+                      <p className="text-xs text-gray-500">
+                        The local AI model is generating and
+                        validating a fix — this can take a
+                        few minutes.
+                      </p>
+                    )}
+
+                    {remediateError && (
+                      <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                        <p className="text-sm text-red-700">
+                          {remediateError}
+                        </p>
+                      </div>
+                    )}
+
                     {/* Metadata */}
                     <div className="grid gap-4 sm:grid-cols-2">
 
@@ -1055,6 +1320,81 @@ export default function ProjectPage() {
                             {selectedFinding.code_snippet}
                           </code>
                         </pre>
+                      </div>
+                    )}
+
+                    {/* AI Explanation */}
+                    {explanation && (
+                      <div className="space-y-4 rounded-lg border border-indigo-200 bg-indigo-50 p-5">
+                        <p className="text-sm font-semibold text-indigo-900">
+                          AI Explanation
+                        </p>
+
+                        <div>
+                          <p className="text-xs font-medium uppercase tracking-wide text-indigo-400">
+                            Root Cause
+                          </p>
+                          <p className="mt-1 text-sm text-indigo-900">
+                            {explanation.root_cause}
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-xs font-medium uppercase tracking-wide text-indigo-400">
+                            Attack Vector
+                          </p>
+                          <p className="mt-1 text-sm text-indigo-900">
+                            {explanation.attack_vector}
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-xs font-medium uppercase tracking-wide text-indigo-400">
+                            Impact
+                          </p>
+                          <p className="mt-1 text-sm text-indigo-900">
+                            {explanation.impact}
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-xs font-medium uppercase tracking-wide text-indigo-400">
+                            Recommendation
+                          </p>
+                          <p className="mt-1 text-sm text-indigo-900">
+                            {explanation.recommendation}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* AI Remediation */}
+                    {remediation && (
+                      <div className="space-y-3 rounded-lg border border-emerald-200 bg-emerald-50 p-5">
+                        <p className="text-sm font-semibold text-emerald-900">
+                          AI Suggested Fix
+                        </p>
+
+                        <p className="text-sm text-emerald-900">
+                          {remediation.explanation}
+                        </p>
+
+                        {remediation.patch ? (
+                          <pre className="mt-2 overflow-x-auto rounded-lg bg-gray-950 p-4 text-xs leading-6 text-gray-100">
+                            <code>{remediation.patch}</code>
+                          </pre>
+                        ) : (
+                          <p className="text-xs italic text-emerald-700">
+                            No patch was provided — this
+                            suggestion requires manual review.
+                          </p>
+                        )}
+
+                        <p className="text-xs text-emerald-700">
+                          This patch is AI-generated and has
+                          not been applied. Review it carefully
+                          before making any changes yourself.
+                        </p>
                       </div>
                     )}
 
