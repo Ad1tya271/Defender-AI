@@ -354,3 +354,19 @@ export async function remediateFinding(
 
   return handleResponse(response);
 }
+export async function saveSnippet(
+  token: string,
+  projectId: string,
+  filename: string,
+  code: string
+) {
+  const response = await fetch(`${API_URL}/api/projects/${projectId}/snippet`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ filename, code }),
+  });
+  return handleResponse(response);
+}

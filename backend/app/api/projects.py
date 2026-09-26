@@ -12,7 +12,7 @@ from app.database.session import get_db
 from app.models.project import Project
 from app.models.scan import Scan
 from app.models.user import User
-from app.schemas.project import ProjectCreate, ProjectResponse, ProjectStatsResponse
+from app.schemas.project import ProjectCreate, ProjectResponse, ProjectStatsResponse, SnippetIn
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 WORKSPACE_ROOT = Path("scan-workspaces")
@@ -161,3 +161,53 @@ def upload_project_archive(
     zip_path.unlink()  # remove the raw zip, keep only extracted source
 
     return {"message": "Upload successful", "extracted_to": str(extract_path)}
+MAX_SNIPPET_CHARS = 200_000  # ~200KB of pasted text, generous for a single-file snippet
+
+
+@router.post("/{project_id}/snippet", status_code=status.HTTP_200_OK)
+def save_code_snippet(
+    project_id: UUID,
+    body: SnippetIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Save a pasted code snippet into the project's scan workspace as a single
+    file, so the existing scan/findings/explain/remediate pipeline can run
+    against it exactly as it would for an uploaded project.
+    """
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if project.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this project")
+
+    if not body.code or not body.code.strip():
+        raise HTTPException(status_code=400, detail="Code cannot be empty")
+
+    if len(body.code) > MAX_SNIPPET_CHARS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Snippet is too large (max {MAX_SNIPPET_CHARS} characters)",
+        )
+
+    raw_name = (body.filename or "").strip().replace("\\", "/")
+    safe_name = Path(raw_name).name if raw_name else ""
+    if not safe_name or safe_name in (".", ".."):
+        safe_name = "snippet.py"
+
+    source_dir = WORKSPACE_ROOT / str(project_id) / "source"
+    source_dir.mkdir(parents=True, exist_ok=True)
+
+    target_path = (source_dir / safe_name).resolve()
+    if not str(target_path).startswith(str(source_dir.resolve())):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    target_path.write_text(body.code, encoding="utf-8")
+
+    return {
+        "message": "Snippet saved. Run a scan on this project to analyze it.",
+        "filename": safe_name,
+        "path": str(target_path),
+        "size_bytes": target_path.stat().st_size,
+    }

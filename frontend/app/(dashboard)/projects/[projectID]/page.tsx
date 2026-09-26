@@ -9,6 +9,7 @@ import {
   getFindings,
   getFinding,
   uploadProject,
+  saveSnippet,
   explainFinding,
   remediateFinding,
   type Scan,
@@ -46,13 +47,23 @@ export default function ProjectPage() {
   const [startingScan, setStartingScan] = useState(false);
 
   // =========================
-  // Upload state
+  // Source: upload vs paste
   // =========================
+
+  const [sourceMode, setSourceMode] =
+    useState<"upload" | "paste">("upload");
 
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState("");
+
+  const [snippetFilename, setSnippetFilename] =
+    useState("snippet.py");
+  const [snippetCode, setSnippetCode] = useState("");
+  const [savingSnippet, setSavingSnippet] = useState(false);
+  const [snippetError, setSnippetError] = useState("");
+  const [snippetSuccess, setSnippetSuccess] = useState("");
 
   // =========================
   // Findings state
@@ -214,7 +225,7 @@ export default function ProjectPage() {
   }, [projectId, router]);
 
   // =========================
-  // Upload project source
+  // Upload project source (zip)
   // =========================
 
   async function handleUpload() {
@@ -250,6 +261,47 @@ export default function ProjectPage() {
       );
     } finally {
       setUploading(false);
+    }
+  }
+
+  // =========================
+  // Save pasted code snippet
+  // =========================
+
+  async function handleSaveSnippet() {
+    if (!snippetCode.trim() || !projectId || projectId === "projects") {
+      return;
+    }
+
+    try {
+      setSavingSnippet(true);
+      setSnippetError("");
+      setSnippetSuccess("");
+
+      const token = localStorage.getItem("access_token");
+
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
+      const filename = snippetFilename.trim() || "snippet.py";
+
+      await saveSnippet(token, projectId, filename, snippetCode);
+
+      setSnippetSuccess(
+        `Saved as "${filename}". You can now run a scan.`
+      );
+    } catch (err) {
+      console.error("Failed to save snippet:", err);
+
+      setSnippetError(
+        err instanceof Error
+          ? err.message
+          : "Failed to save code snippet"
+      );
+    } finally {
+      setSavingSnippet(false);
     }
   }
 
@@ -616,58 +668,158 @@ export default function ProjectPage() {
         </div>
       </div>
 
-      {/* Upload Source */}
+      {/* Project Source: Upload or Paste */}
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">
               Project Source
             </h2>
 
             <p className="mt-1 text-sm text-gray-500">
-              Upload a .zip archive of the source code to scan.
+              Upload a .zip archive, or paste a single code
+              snippet to scan quickly.
             </p>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-
-            <input
-              type="file"
-              accept=".zip"
-              onChange={(event) =>
-                setUploadFile(
-                  event.target.files?.[0] ?? null
-                )
-              }
-              disabled={uploading}
-              className="block text-sm text-gray-600 file:mr-4 file:rounded-lg file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200"
-            />
-
+          <div className="flex rounded-lg border border-gray-200 p-1">
             <button
-              onClick={handleUpload}
-              disabled={uploading || !uploadFile}
-              className="rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => setSourceMode("upload")}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                sourceMode === "upload"
+                  ? "bg-gray-900 text-white"
+                  : "text-gray-600 hover:bg-gray-50"
+              }`}
             >
-              {uploading ? "Uploading..." : "Upload"}
+              Upload .zip
             </button>
 
+            <button
+              onClick={() => setSourceMode("paste")}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                sourceMode === "paste"
+                  ? "bg-gray-900 text-white"
+                  : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              Paste Code
+            </button>
           </div>
         </div>
 
-        {uploadSuccess && (
-          <div className="mt-5 rounded-lg border border-green-200 bg-green-50 p-4">
-            <p className="text-sm text-green-700">
-              {uploadSuccess}
-            </p>
-          </div>
-        )}
+        {sourceMode === "upload" ? (
+          <div className="mt-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <input
+                type="file"
+                accept=".zip"
+                onChange={(event) =>
+                  setUploadFile(
+                    event.target.files?.[0] ?? null
+                  )
+                }
+                disabled={uploading}
+                className="block text-sm text-gray-600 file:mr-4 file:rounded-lg file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200"
+              />
 
-        {uploadError && (
-          <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4">
-            <p className="text-sm text-red-700">
-              {uploadError}
-            </p>
+              <button
+                onClick={handleUpload}
+                disabled={uploading || !uploadFile}
+                className="rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {uploading ? "Uploading..." : "Upload"}
+              </button>
+            </div>
+
+            {uploadSuccess && (
+              <div className="mt-5 rounded-lg border border-green-200 bg-green-50 p-4">
+                <p className="text-sm text-green-700">
+                  {uploadSuccess}
+                </p>
+              </div>
+            )}
+
+            {uploadError && (
+              <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4">
+                <p className="text-sm text-red-700">
+                  {uploadError}
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="mt-5 space-y-3">
+            <div>
+              <label
+                htmlFor="snippet-filename"
+                className="mb-2 block text-sm font-medium text-gray-700"
+              >
+                Filename
+              </label>
+
+              <input
+                id="snippet-filename"
+                type="text"
+                value={snippetFilename}
+                onChange={(event) =>
+                  setSnippetFilename(event.target.value)
+                }
+                placeholder="snippet.py"
+                disabled={savingSnippet}
+                className="w-full max-w-xs rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+
+              <p className="mt-1 text-xs text-gray-400">
+                The extension (.py, .js, .java, etc.) tells
+                the scanner which language rules to apply.
+              </p>
+            </div>
+
+            <div>
+              <label
+                htmlFor="snippet-code"
+                className="mb-2 block text-sm font-medium text-gray-700"
+              >
+                Code
+              </label>
+
+              <textarea
+                id="snippet-code"
+                value={snippetCode}
+                onChange={(event) =>
+                  setSnippetCode(event.target.value)
+                }
+                placeholder="Paste your code here..."
+                disabled={savingSnippet}
+                rows={12}
+                spellCheck={false}
+                className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 font-mono text-sm leading-6 text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+
+            <button
+              onClick={handleSaveSnippet}
+              disabled={savingSnippet || !snippetCode.trim()}
+              className="rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {savingSnippet ? "Saving..." : "Save Snippet"}
+            </button>
+
+            {snippetSuccess && (
+              <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+                <p className="text-sm text-green-700">
+                  {snippetSuccess}
+                </p>
+              </div>
+            )}
+
+            {snippetError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                <p className="text-sm text-red-700">
+                  {snippetError}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>

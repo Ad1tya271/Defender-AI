@@ -3,6 +3,9 @@ from uuid import UUID
 from datetime import datetime
 from typing import Optional
 
+class SnippetIn(BaseModel):
+    filename: Optional[str] = None
+    code: str
 
 class ProjectCreate(BaseModel):
     name: str
