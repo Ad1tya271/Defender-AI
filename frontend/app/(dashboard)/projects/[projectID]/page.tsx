@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   createScan,
   getProjects,
@@ -1256,45 +1257,54 @@ export default function ProjectPage() {
                 <div className="divide-y divide-gray-100">
 
                   {findings.map((finding) => (
-                    <button
+                    <div
                       key={finding.id}
-                      onClick={() =>
-                        handleViewFinding(finding)
-                      }
-                      className={`w-full px-5 py-4 text-left transition hover:bg-gray-50 ${
+                      className={`group flex items-center justify-between border-b border-gray-100 px-5 py-4 transition hover:bg-gray-50/80 ${
                         selectedFinding?.id === finding.id
-                          ? "bg-gray-50"
+                          ? "bg-indigo-50/40 border-l-4 border-l-indigo-600"
                           : ""
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-4">
+                      <button
+                        onClick={() => handleViewFinding(finding)}
+                        className="flex-1 text-left min-w-0 pr-3 focus:outline-none"
+                      >
+                        <p className="font-medium text-gray-900 group-hover:text-indigo-600 transition truncate">
+                          {finding.title}
+                        </p>
 
-                        <div className="min-w-0">
-                          <p className="font-medium text-gray-900">
-                            {finding.title}
-                          </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          <span className="font-semibold text-gray-700">{finding.scanner}</span>
+                          {finding.file_path
+                            ? ` • ${finding.file_path}`
+                            : ""}
+                          {finding.start_line
+                            ? ` : ${finding.start_line}`
+                            : ""}
+                        </p>
+                      </button>
 
-                          <p className="mt-1 text-xs text-gray-500">
-                            {finding.scanner}
-                            {finding.file_path
-                              ? ` • ${finding.file_path}`
-                              : ""}
-                            {finding.start_line
-                              ? ` • Line ${finding.start_line}`
-                              : ""}
-                          </p>
-                        </div>
-
+                      <div className="flex items-center gap-2 shrink-0">
                         <span
-                          className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${getFindingSeverityClass(
+                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${getFindingSeverityClass(
                             finding.severity
                           )}`}
                         >
                           {finding.severity}
                         </span>
 
+                        <Link
+                          href={`/projects/${projectId}/findings/${finding.id}`}
+                          title="Open dedicated analysis page in full screen"
+                          className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 shadow-xs hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 transition"
+                        >
+                          <span>Open</span>
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </Link>
                       </div>
-                    </button>
+                    </div>
                   ))}
 
                 </div>
@@ -1303,10 +1313,22 @@ export default function ProjectPage() {
               {/* Finding Details */}
               <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
 
-                <div className="border-b border-gray-200 px-5 py-4">
+                <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
                   <h3 className="font-semibold text-gray-900">
                     Finding Details
                   </h3>
+
+                  {selectedFinding && (
+                    <Link
+                      href={`/projects/${projectId}/findings/${selectedFinding.id}`}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition shadow-2xs"
+                    >
+                      <span>Full Analysis Page</span>
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                      </svg>
+                    </Link>
+                  )}
                 </div>
 
                 {!selectedFinding ? (
@@ -1362,6 +1384,16 @@ export default function ProjectPage() {
                           ? "Generating fix..."
                           : "Suggest Fix"}
                       </button>
+
+                      <Link
+                        href={`/projects/${projectId}/findings/${selectedFinding.id}`}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:bg-indigo-700 transition"
+                      >
+                        <span>Open Dedicated View</span>
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </Link>
                     </div>
 
                     {loadingExplanation && (
