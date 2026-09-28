@@ -99,33 +99,16 @@ export default function RemediationManager({
     try {
       setActionLoading(`verify-${proposalId}`);
       setFeedbackMessage(null);
-      const res: VerificationResult = await verifyRemediation(token, proposalId);
-      if (res.status === "verified_fixed") {
-        setFeedbackMessage({
-          type: "success",
-          text: "Verification SUCCESS: Vulnerability resolved with zero regressions!",
-        });
-      } else if (res.status === "still_vulnerable") {
-        setFeedbackMessage({
-          type: "error",
-          text: "Verification WARNING: Scanner still detected the vulnerability after patch.",
-        });
-      } else if (res.status === "new_findings_introduced") {
-        setFeedbackMessage({
-          type: "error",
-          text: `Verification REGRESSION: Patch introduced ${res.new_findings_count} new security finding(s)!`,
-        });
-      } else {
-        setFeedbackMessage({
-          type: "error",
-          text: "Verification failed to complete or patch could not be applied.",
-        });
-      }
+      const result = await verifyRemediation(token, proposalId);
+      setFeedbackMessage({
+        type: result.status === "verified_fixed" ? "success" : "error",
+        text: `Sandbox Verification: ${result.details || (result.status === "verified_fixed" ? "Verified fixed (0 remaining)" : result.status)}`,
+      });
       await loadProposals();
     } catch (err) {
       setFeedbackMessage({
         type: "error",
-        text: err instanceof Error ? err.message : "Verification execution failed",
+        text: err instanceof Error ? err.message : "Verification runner failed",
       });
     } finally {
       setActionLoading(null);
@@ -136,8 +119,12 @@ export default function RemediationManager({
     if (!token) return;
     try {
       setActionLoading(`approve-${proposalId}`);
+      setFeedbackMessage(null);
       await approveRemediation(token, proposalId);
-      setFeedbackMessage({ type: "success", text: "Proposal approved." });
+      setFeedbackMessage({
+        type: "success",
+        text: "Proposal approved for codebase application!",
+      });
       await loadProposals();
     } catch (err) {
       setFeedbackMessage({
@@ -153,8 +140,12 @@ export default function RemediationManager({
     if (!token) return;
     try {
       setActionLoading(`reject-${proposalId}`);
+      setFeedbackMessage(null);
       await rejectRemediation(token, proposalId);
-      setFeedbackMessage({ type: "info", text: "Proposal rejected." });
+      setFeedbackMessage({
+        type: "info",
+        text: "Proposal marked as rejected.",
+      });
       await loadProposals();
     } catch (err) {
       setFeedbackMessage({
@@ -171,16 +162,16 @@ export default function RemediationManager({
     try {
       setActionLoading(`apply-${proposalId}`);
       setFeedbackMessage(null);
-      const res = await applyRemediation(token, proposalId);
+      await applyRemediation(token, proposalId);
       setFeedbackMessage({
         type: "success",
-        text: `Patch applied successfully! Safety backup created for ${res.modified_files.length} file(s).`,
+        text: "Patch applied securely! Snapshot backup saved to .defender_backup",
       });
       await loadProposals();
     } catch (err) {
       setFeedbackMessage({
         type: "error",
-        text: err instanceof Error ? err.message : "Failed to apply patch to source",
+        text: err instanceof Error ? err.message : "Failed to apply patch",
       });
     } finally {
       setActionLoading(null);
@@ -195,7 +186,7 @@ export default function RemediationManager({
       await rollbackRemediation(token, proposalId);
       setFeedbackMessage({
         type: "info",
-        text: "Patch safely rolled back! Original source file restored from backup.",
+        text: "Rollback successful! File restored from snapshot backup.",
       });
       await loadProposals();
     } catch (err) {
@@ -212,25 +203,25 @@ export default function RemediationManager({
     switch (status) {
       case "proposed":
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-950/60 px-2.5 py-0.5 text-xs font-semibold text-amber-300 border border-amber-500/30">
             <Clock className="h-3 w-3" /> Under Review
           </span>
         );
       case "approved":
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800">
+          <span className="inline-flex items-center gap-1 rounded-full bg-indigo-950/60 px-2.5 py-0.5 text-xs font-semibold text-indigo-300 border border-indigo-500/30">
             <CheckCircle2 className="h-3 w-3" /> Approved
           </span>
         );
       case "rejected":
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700">
+          <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-2.5 py-0.5 text-xs font-semibold text-slate-400 border border-slate-700">
             <XCircle className="h-3 w-3" /> Rejected
           </span>
         );
       case "applied":
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-950/60 px-2.5 py-0.5 text-xs font-semibold text-emerald-300 border border-emerald-500/30">
             <ShieldCheck className="h-3 w-3" /> Applied to Codebase
           </span>
         );
@@ -242,37 +233,37 @@ export default function RemediationManager({
   const getVerificationBadge = (result?: VerificationResult) => {
     if (!result) {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-          <FlaskConical className="h-3 w-3 text-slate-400" /> Not verified yet
+        <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-medium text-slate-400 border border-slate-700">
+          <FlaskConical className="h-3 w-3 text-slate-500" /> Not verified yet
         </span>
       );
     }
     switch (result.status) {
       case "verified_fixed":
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-950/60 px-2.5 py-0.5 text-xs font-semibold text-emerald-300 border border-emerald-500/30">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
             Verified Fixed (0 remaining)
           </span>
         );
       case "still_vulnerable":
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-800">
-            <ShieldAlert className="h-3.5 w-3.5 text-rose-600" />
+          <span className="inline-flex items-center gap-1 rounded-full bg-rose-950/60 px-2.5 py-0.5 text-xs font-semibold text-rose-300 border border-rose-500/30">
+            <ShieldAlert className="h-3.5 w-3.5 text-rose-400" />
             Still Vulnerable
           </span>
         );
       case "new_findings_introduced":
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
-            <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-950/60 px-2.5 py-0.5 text-xs font-semibold text-amber-300 border border-amber-500/30">
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
             Regression ({result.new_findings_count} new)
           </span>
         );
       case "failed":
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800">
-            <XCircle className="h-3.5 w-3.5 text-red-600" />
+          <span className="inline-flex items-center gap-1 rounded-full bg-rose-950/60 px-2.5 py-0.5 text-xs font-semibold text-rose-300 border border-rose-500/30">
+            <XCircle className="h-3.5 w-3.5 text-rose-400" />
             Verification Failed
           </span>
         );
@@ -282,14 +273,14 @@ export default function RemediationManager({
   };
 
   return (
-    <div className="space-y-6 pt-4 border-t border-gray-200">
+    <div className="space-y-6 pt-4 border-t border-slate-800">
       <div className="flex items-center justify-between">
         <div>
-          <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-indigo-600" />
+          <h4 className="text-sm font-bold text-white flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-indigo-400" />
             Remediation & Patch Pipeline
           </h4>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-slate-400 mt-0.5">
             Review diffs, run isolated scanner verifications, and apply approved fixes.
           </p>
         </div>
@@ -298,49 +289,49 @@ export default function RemediationManager({
       {/* Global feedback message toast */}
       {feedbackMessage && (
         <div
-          className={`rounded-lg p-3 text-xs font-medium flex items-center gap-2 ${
+          className={`rounded-xl p-3 text-xs font-medium flex items-center gap-2 ${
             feedbackMessage.type === "success"
-              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+              ? "bg-emerald-950/50 text-emerald-300 border border-emerald-500/30"
               : feedbackMessage.type === "error"
-              ? "bg-rose-50 text-rose-800 border border-rose-200"
-              : "bg-blue-50 text-blue-800 border border-blue-200"
+              ? "bg-rose-950/50 text-rose-300 border border-rose-500/30"
+              : "bg-indigo-950/50 text-indigo-300 border border-indigo-500/30"
           }`}
         >
-          {feedbackMessage.type === "success" && <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />}
-          {feedbackMessage.type === "error" && <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />}
-          {feedbackMessage.type === "info" && <RotateCcw className="h-4 w-4 text-blue-600 shrink-0" />}
+          {feedbackMessage.type === "success" && <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />}
+          {feedbackMessage.type === "error" && <AlertTriangle className="h-4 w-4 text-rose-400 shrink-0" />}
+          {feedbackMessage.type === "info" && <RotateCcw className="h-4 w-4 text-indigo-400 shrink-0" />}
           <span>{feedbackMessage.text}</span>
         </div>
       )}
 
-      {/* AI Suggestion Promotion Card (if available and not yet saved as proposal) */}
+      {/* AI Suggestion Promotion Card */}
       {suggestedRemediation && proposals.length === 0 && (
-        <div className="rounded-xl border border-indigo-200 bg-gradient-to-b from-indigo-50/50 to-white p-4 shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-indigo-700">
+        <div className="rounded-2xl border border-indigo-500/30 bg-indigo-950/20 p-5 shadow-xl space-y-4 backdrop-blur-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400">
               AI Generated Fix Proposal
             </span>
             <button
               onClick={handleSaveAsProposal}
               disabled={actionLoading === "save"}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 transition"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-md hover:bg-indigo-500 disabled:opacity-50 transition"
             >
               {actionLoading === "save" ? "Saving..." : "Save as Formal Proposal"}
               <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>
-          <p className="text-xs text-gray-600">{suggestedRemediation.explanation}</p>
+          <p className="text-xs text-slate-300 leading-relaxed">{suggestedRemediation.explanation}</p>
           <DiffViewer patch={suggestedRemediation.patch} targetFile={filePath} />
         </div>
       )}
 
       {/* Existing Proposals Pipeline */}
       {loading ? (
-        <p className="text-xs text-gray-400 italic">Loading remediation proposals...</p>
+        <p className="text-xs text-slate-500 italic">Loading remediation proposals...</p>
       ) : proposals.length === 0 && !suggestedRemediation ? (
-        <div className="rounded-lg border border-dashed border-gray-300 p-4 text-center">
-          <p className="text-xs text-gray-500">
-            No remediation proposals yet. Click &quot;Suggest Fix&quot; above to generate an AI patch.
+        <div className="rounded-xl border border-dashed border-slate-800 p-6 text-center">
+          <p className="text-xs text-slate-400">
+            No remediation proposals yet. Click &quot;Generate AI Fix&quot; above to create a candidate patch.
           </p>
         </div>
       ) : (
@@ -353,21 +344,21 @@ export default function RemediationManager({
             return (
               <div
                 key={proposal.id}
-                className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-3"
+                className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow-md space-y-4"
               >
                 {/* Header & Status */}
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-3">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                  <div className="flex flex-wrap items-center gap-2">
                     {getStatusBadge(proposal.status)}
                     {getVerificationBadge(latestVerification)}
                   </div>
-                  <span className="text-[11px] text-gray-400 font-mono">
+                  <span className="text-[11px] text-slate-500 font-mono">
                     {new Date(proposal.created_at).toLocaleString()}
                   </span>
                 </div>
 
                 {/* Explanation */}
-                <p className="text-xs text-gray-700">{proposal.explanation}</p>
+                <p className="text-xs text-slate-300 leading-relaxed">{proposal.explanation}</p>
 
                 {/* Diff Viewer */}
                 <DiffViewer
@@ -376,19 +367,19 @@ export default function RemediationManager({
                 />
 
                 {/* Action Toolbar */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gray-100">
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800">
                   {/* Left: Verification button */}
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleVerify(proposal.id)}
                       disabled={actionLoading === `verify-${proposal.id}`}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 transition"
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-950/40 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-900/50 disabled:opacity-50 transition"
                       title="Run isolated re-scan in ephemeral sandbox"
                     >
-                      <FlaskConical className="h-3.5 w-3.5 text-emerald-600" />
+                      <FlaskConical className="h-3.5 w-3.5 text-emerald-400" />
                       {actionLoading === `verify-${proposal.id}`
                         ? "Verifying in Sandbox..."
-                        : "Verify Patch"}
+                        : "Verify Patch in Sandbox"}
                     </button>
                   </div>
 
@@ -399,17 +390,17 @@ export default function RemediationManager({
                         <button
                           onClick={() => handleApprove(proposal.id)}
                           disabled={actionLoading === `approve-${proposal.id}`}
-                          className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                          className="inline-flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 disabled:opacity-50 transition"
                         >
-                          <ThumbsUp className="h-3 w-3 text-blue-600" />
+                          <ThumbsUp className="h-3 w-3 text-indigo-400" />
                           Approve
                         </button>
                         <button
                           onClick={() => handleReject(proposal.id)}
                           disabled={actionLoading === `reject-${proposal.id}`}
-                          className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                          className="inline-flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 disabled:opacity-50 transition"
                         >
-                          <ThumbsDown className="h-3 w-3 text-rose-600" />
+                          <ThumbsDown className="h-3 w-3 text-rose-400" />
                           Reject
                         </button>
                       </>
@@ -419,10 +410,10 @@ export default function RemediationManager({
                       <button
                         onClick={() => handleApply(proposal.id)}
                         disabled={!canApply || actionLoading === `apply-${proposal.id}`}
-                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition ${
+                        className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition ${
                           canApply
-                            ? "bg-emerald-600 hover:bg-emerald-500 cursor-pointer"
-                            : "bg-gray-300 cursor-not-allowed text-gray-500"
+                            ? "bg-emerald-600 hover:bg-emerald-500 cursor-pointer shadow-emerald-600/30"
+                            : "bg-slate-800 cursor-not-allowed text-slate-500 border border-slate-700"
                         }`}
                         title={
                           !isVerifiedFixed
@@ -439,9 +430,9 @@ export default function RemediationManager({
                       <button
                         onClick={() => handleRollback(proposal.id)}
                         disabled={actionLoading === `rollback-${proposal.id}`}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50 transition"
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-950/40 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-900/50 disabled:opacity-50 transition"
                       >
-                        <RotateCcw className="h-3.5 w-3.5 text-amber-700" />
+                        <RotateCcw className="h-3.5 w-3.5 text-amber-400" />
                         {actionLoading === `rollback-${proposal.id}` ? "Rolling back..." : "Rollback Patch"}
                       </button>
                     )}

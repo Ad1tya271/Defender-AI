@@ -4,6 +4,23 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+  ArrowLeft,
+  ArrowRight,
+  Code2,
+  FileCode,
+  FolderKanban,
+  Play,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  Sparkles,
+  Terminal,
+  Upload,
+} from "lucide-react";
+import {
   createScan,
   getProjects,
   getScans,
@@ -43,69 +60,43 @@ export default function ProjectPage() {
   const [error, setError] = useState("");
   const [scanError, setScanError] = useState("");
 
-  const [selectedScanner, setSelectedScanner] =
-    useState<ScannerType>("all");
-
+  const [selectedScanner, setSelectedScanner] = useState<ScannerType>("all");
   const [startingScan, setStartingScan] = useState(false);
 
-  // =========================
   // Source: upload vs paste
-  // =========================
-
-  const [sourceMode, setSourceMode] =
-    useState<"upload" | "paste">("upload");
-
+  const [sourceMode, setSourceMode] = useState<"upload" | "paste">("upload");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState("");
 
-  const [snippetFilename, setSnippetFilename] =
-    useState("snippet.py");
+  const [snippetFilename, setSnippetFilename] = useState("snippet.py");
   const [snippetCode, setSnippetCode] = useState("");
   const [savingSnippet, setSavingSnippet] = useState(false);
   const [snippetError, setSnippetError] = useState("");
   const [snippetSuccess, setSnippetSuccess] = useState("");
 
-  // =========================
   // Findings state
-  // =========================
-
   const [selectedScan, setSelectedScan] = useState<Scan | null>(null);
   const [findings, setFindings] = useState<Finding[]>([]);
-  const [selectedFinding, setSelectedFinding] =
-    useState<FindingDetail | null>(null);
+  const [selectedFinding, setSelectedFinding] = useState<FindingDetail | null>(null);
 
   const [loadingFindings, setLoadingFindings] = useState(false);
-  const [loadingFindingDetail, setLoadingFindingDetail] =
-    useState(false);
-
+  const [loadingFindingDetail, setLoadingFindingDetail] = useState(false);
   const [findingError, setFindingError] = useState("");
 
-  // =========================
   // AI: Explain / Remediate state
-  // =========================
-
-  const [explanation, setExplanation] =
-    useState<FindingExplanation | null>(null);
-  const [loadingExplanation, setLoadingExplanation] =
-    useState(false);
+  const [explanation, setExplanation] = useState<FindingExplanation | null>(null);
+  const [loadingExplanation, setLoadingExplanation] = useState(false);
   const [explainError, setExplainError] = useState("");
 
-  const [remediation, setRemediation] =
-    useState<RemediationSuggestion | null>(null);
-  const [loadingRemediation, setLoadingRemediation] =
-    useState(false);
+  const [remediation, setRemediation] = useState<RemediationSuggestion | null>(null);
+  const [loadingRemediation, setLoadingRemediation] = useState(false);
   const [remediateError, setRemediateError] = useState("");
 
-  // Get project ID from URL
-  const projectId =
-    pathname.split("/").filter(Boolean).pop() || "";
+  const projectId = pathname.split("/").filter(Boolean).pop() || "";
 
-  // =========================
   // Load project
-  // =========================
-
   useEffect(() => {
     let cancelled = false;
 
@@ -119,7 +110,6 @@ export default function ProjectPage() {
       }
 
       const token = localStorage.getItem("access_token");
-
       if (!token) {
         router.push("/login");
         return;
@@ -127,15 +117,9 @@ export default function ProjectPage() {
 
       try {
         const projects = await getProjects(token);
+        if (cancelled) return;
 
-        if (cancelled) {
-          return;
-        }
-
-        const foundProject = projects.find(
-          (item: Project) => item.id === projectId
-        );
-
+        const foundProject = projects.find((item: Project) => item.id === projectId);
         if (!foundProject) {
           setError("Project not found");
           return;
@@ -144,17 +128,8 @@ export default function ProjectPage() {
         setProject(foundProject);
         setError("");
       } catch (err) {
-        if (cancelled) {
-          return;
-        }
-
-        console.error("Failed to load project:", err);
-
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Unable to load project"
-        );
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Unable to load project");
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -163,29 +138,22 @@ export default function ProjectPage() {
     }
 
     loadProject();
-
     return () => {
       cancelled = true;
     };
   }, [projectId, router]);
 
-  // =========================
   // Load scans
-  // =========================
-
   useEffect(() => {
     let cancelled = false;
 
     async function loadScans() {
       if (!projectId || projectId === "projects") {
-        if (!cancelled) {
-          setLoadingScans(false);
-        }
+        if (!cancelled) setLoadingScans(false);
         return;
       }
 
       const token = localStorage.getItem("access_token");
-
       if (!token) {
         router.push("/login");
         return;
@@ -193,47 +161,25 @@ export default function ProjectPage() {
 
       try {
         const data = await getScans(token, projectId);
-
-        if (cancelled) {
-          return;
-        }
-
+        if (cancelled) return;
         setScans(data);
         setScanError("");
       } catch (err) {
-        if (cancelled) {
-          return;
-        }
-
-        console.error("Failed to load scans:", err);
-
-        setScanError(
-          err instanceof Error
-            ? err.message
-            : "Failed to load scans"
-        );
+        if (cancelled) return;
+        setScanError(err instanceof Error ? err.message : "Failed to load scans");
       } finally {
-        if (!cancelled) {
-          setLoadingScans(false);
-        }
+        if (!cancelled) setLoadingScans(false);
       }
     }
 
     loadScans();
-
     return () => {
       cancelled = true;
     };
   }, [projectId, router]);
 
-  // =========================
-  // Upload project source (zip)
-  // =========================
-
   async function handleUpload() {
-    if (!uploadFile || !projectId || projectId === "projects") {
-      return;
-    }
+    if (!uploadFile || !projectId || projectId === "projects") return;
 
     try {
       setUploading(true);
@@ -241,39 +187,23 @@ export default function ProjectPage() {
       setUploadSuccess("");
 
       const token = localStorage.getItem("access_token");
-
       if (!token) {
         router.push("/login");
         return;
       }
 
       await uploadProject(token, projectId, uploadFile);
-
-      setUploadSuccess(
-        "Upload successful. You can now run a scan."
-      );
+      setUploadSuccess("Archive uploaded and unpacked. You can now launch a security scan.");
       setUploadFile(null);
     } catch (err) {
-      console.error("Failed to upload project:", err);
-
-      setUploadError(
-        err instanceof Error
-          ? err.message
-          : "Failed to upload project"
-      );
+      setUploadError(err instanceof Error ? err.message : "Failed to upload project");
     } finally {
       setUploading(false);
     }
   }
 
-  // =========================
-  // Save pasted code snippet
-  // =========================
-
   async function handleSaveSnippet() {
-    if (!snippetCode.trim() || !projectId || projectId === "projects") {
-      return;
-    }
+    if (!snippetCode.trim() || !projectId || projectId === "projects") return;
 
     try {
       setSavingSnippet(true);
@@ -281,95 +211,53 @@ export default function ProjectPage() {
       setSnippetSuccess("");
 
       const token = localStorage.getItem("access_token");
-
       if (!token) {
         router.push("/login");
         return;
       }
 
       const filename = snippetFilename.trim() || "snippet.py";
-
       await saveSnippet(token, projectId, filename, snippetCode);
-
-      setSnippetSuccess(
-        `Saved as "${filename}". You can now run a scan.`
-      );
+      setSnippetSuccess(`Saved snippet "${filename}". Ready for scanner analysis.`);
     } catch (err) {
-      console.error("Failed to save snippet:", err);
-
-      setSnippetError(
-        err instanceof Error
-          ? err.message
-          : "Failed to save code snippet"
-      );
+      setSnippetError(err instanceof Error ? err.message : "Failed to save code snippet");
     } finally {
       setSavingSnippet(false);
     }
   }
 
-  // =========================
-  // Start scan
-  // =========================
-
   async function handleStartScan() {
-    if (!projectId || projectId === "projects") {
-      return;
-    }
+    if (!projectId || projectId === "projects") return;
 
     try {
       setStartingScan(true);
       setScanError("");
 
       const token = localStorage.getItem("access_token");
-
       if (!token) {
         router.push("/login");
         return;
       }
 
-      await createScan(
-        token,
-        projectId,
-        selectedScanner
-      );
-
-      const updatedScans = await getScans(
-        token,
-        projectId
-      );
-
+      await createScan(token, projectId, selectedScanner);
+      const updatedScans = await getScans(token, projectId);
       setScans(updatedScans);
-      setLoadingScans(false);
 
-      // Clear previously opened finding
-      setSelectedScan(null);
-      setFindings([]);
-      setSelectedFinding(null);
-      setFindingError("");
+      // Auto-select latest scan findings
+      if (updatedScans.length > 0) {
+        handleViewFindings(updatedScans[0]);
+      }
     } catch (err) {
-      console.error("Failed to start scan:", err);
-
-      setScanError(
-        err instanceof Error
-          ? err.message
-          : "Failed to start scan"
-      );
+      setScanError(err instanceof Error ? err.message : "Failed to start scan");
     } finally {
       setStartingScan(false);
     }
   }
 
-  // =========================
-  // Load findings for a scan
-  // =========================
-
   async function handleViewFindings(scan: Scan) {
-    if (scan.status !== "completed") {
-      return;
-    }
+    if (scan.status !== "completed") return;
 
     const token = localStorage.getItem("access_token");
-
     if (!token) {
       router.push("/login");
       return;
@@ -382,40 +270,25 @@ export default function ProjectPage() {
       setFindingError("");
       setLoadingFindings(true);
 
-      const data = await getFindings(
-        token,
-        scan.id
-      );
-
+      const data = await getFindings(token, scan.id);
       setFindings(data);
+      if (data.length > 0) {
+        handleViewFinding(data[0]);
+      }
     } catch (err) {
-      console.error("Failed to load findings:", err);
-
-      setFindingError(
-        err instanceof Error
-          ? err.message
-          : "Failed to load findings"
-      );
+      setFindingError(err instanceof Error ? err.message : "Failed to load findings");
     } finally {
       setLoadingFindings(false);
     }
   }
 
-  // =========================
-  // Load finding details
-  // =========================
-
-  async function handleViewFinding(
-    finding: Finding
-  ) {
+  async function handleViewFinding(finding: Finding) {
     const token = localStorage.getItem("access_token");
-
     if (!token) {
       router.push("/login");
       return;
     }
 
-    // Reset AI panels whenever a different finding is selected
     setExplanation(null);
     setExplainError("");
     setRemediation(null);
@@ -425,843 +298,450 @@ export default function ProjectPage() {
       setLoadingFindingDetail(true);
       setFindingError("");
 
-      const detail = await getFinding(
-        token,
-        finding.id
-      );
-
+      const detail = await getFinding(token, finding.id);
       setSelectedFinding(detail);
     } catch (err) {
-      console.error(
-        "Failed to load finding details:",
-        err
-      );
-
-      setFindingError(
-        err instanceof Error
-          ? err.message
-          : "Failed to load finding details"
-      );
+      setFindingError(err instanceof Error ? err.message : "Failed to load finding details");
     } finally {
       setLoadingFindingDetail(false);
     }
   }
 
-  // =========================
-  // AI: Explain finding
-  // =========================
-
   async function handleExplainFinding() {
-    if (!selectedFinding) {
-      return;
-    }
+    if (!selectedFinding) return;
 
     try {
       setLoadingExplanation(true);
       setExplainError("");
 
       const token = localStorage.getItem("access_token");
-
       if (!token) {
         router.push("/login");
         return;
       }
 
-      const result = await explainFinding(
-        token,
-        selectedFinding.id
-      );
-
+      const result = await explainFinding(token, selectedFinding.id);
       setExplanation(result);
     } catch (err) {
-      console.error("Failed to explain finding:", err);
-
-      setExplainError(
-        err instanceof Error
-          ? err.message
-          : "Failed to get AI explanation"
-      );
+      setExplainError(err instanceof Error ? err.message : "Failed to get AI explanation");
     } finally {
       setLoadingExplanation(false);
     }
   }
 
-  // =========================
-  // AI: Suggest fix
-  // =========================
-
   async function handleSuggestFix() {
-    if (!selectedFinding) {
-      return;
-    }
+    if (!selectedFinding) return;
 
     try {
       setLoadingRemediation(true);
       setRemediateError("");
 
       const token = localStorage.getItem("access_token");
-
       if (!token) {
         router.push("/login");
         return;
       }
 
-      const result = await remediateFinding(
-        token,
-        selectedFinding.id
-      );
-
+      const result = await remediateFinding(token, selectedFinding.id);
       setRemediation(result);
     } catch (err) {
-      console.error("Failed to generate remediation:", err);
-
-      setRemediateError(
-        err instanceof Error
-          ? err.message
-          : "Failed to generate AI remediation"
-      );
+      setRemediateError(err instanceof Error ? err.message : "Failed to generate AI remediation");
     } finally {
       setLoadingRemediation(false);
     }
   }
 
-  // =========================
-  // Helpers
-  // =========================
-
-  function getScoreLabel(
-    score: number | null | undefined
-  ) {
-    if (score === null || score === undefined) {
-      return "Not scanned";
-    }
-
-    if (score >= 80) {
-      return "Good";
-    }
-
-    if (score >= 50) {
-      return "Needs attention";
-    }
-
-    return "At risk";
-  }
-
-  function getStatusClass(status: string) {
-    switch (status.toLowerCase()) {
-      case "completed":
-        return "bg-green-50 text-green-700";
-
-      case "running":
-        return "bg-blue-50 text-blue-700";
-
-      case "failed":
-        return "bg-red-50 text-red-700";
-
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
-  }
-
-  function getSeverityClass(count: number) {
-    return count > 0
-      ? "text-red-600"
-      : "text-gray-400";
-  }
-
-  function getFindingSeverityClass(
-    severity: string
-  ) {
+  function getSeverityClass(severity: string) {
     switch (severity.toLowerCase()) {
       case "critical":
-        return "bg-red-100 text-red-700";
-
+        return "bg-rose-950/60 text-rose-300 border border-rose-500/30";
       case "high":
-        return "bg-orange-100 text-orange-700";
-
+        return "bg-orange-950/60 text-orange-300 border border-orange-500/30";
       case "medium":
-        return "bg-yellow-100 text-yellow-700";
-
+        return "bg-amber-950/60 text-amber-300 border border-amber-500/30";
       case "low":
-        return "bg-blue-100 text-blue-700";
-
+        return "bg-indigo-950/60 text-indigo-300 border border-indigo-500/30";
       default:
-        return "bg-gray-100 text-gray-700";
+        return "bg-slate-800 text-slate-400 border border-slate-700";
     }
   }
 
-  const latestScan =
-    scans.length > 0 ? scans[0] : null;
-
-  // =========================
-  // Loading
-  // =========================
+  const latestScan = scans.length > 0 ? scans[0] : null;
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-8">
-        <p className="text-gray-500">
-          Loading project...
-        </p>
+      <div className="flex h-96 flex-col items-center justify-center space-y-4">
+        <RefreshCw className="h-8 w-8 animate-spin text-indigo-500" />
+        <p className="text-sm font-medium text-slate-400">Loading project security workspace...</p>
       </div>
     );
   }
-
-  // =========================
-  // Error
-  // =========================
 
   if (error || !project) {
     return (
-      <div className="space-y-6">
-        <button
-          onClick={() => router.push("/projects")}
-          className="text-sm text-gray-500 hover:text-gray-900"
+      <div className="space-y-6 max-w-2xl mx-auto mt-12">
+        <Link
+          href="/projects"
+          className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition"
         >
-          ← Back to Projects
-        </button>
-
-        <div className="rounded-xl border border-red-200 bg-red-50 p-6">
-          <h2 className="text-lg font-semibold text-red-700">
-            Unable to load project
-          </h2>
-
-          <p className="mt-2 text-sm text-red-600">
-            {error || "Project not found"}
-          </p>
+          <ArrowLeft className="h-4 w-4" /> Back to Projects
+        </Link>
+        <div className="rounded-2xl border border-rose-500/30 bg-rose-950/40 p-8 text-center space-y-2">
+          <ShieldAlert className="mx-auto h-8 w-8 text-rose-400" />
+          <h2 className="text-lg font-bold text-white">Project Not Found</h2>
+          <p className="text-xs text-rose-300">{error || "Could not retrieve the specified workspace."}</p>
         </div>
       </div>
     );
   }
 
-  // =========================
-  // Main UI
-  // =========================
-
   return (
-    <div className="space-y-8">
-
-      {/* Back */}
-      <button
-        onClick={() => router.push("/projects")}
-        className="text-sm text-gray-500 transition hover:text-gray-900"
-      >
-        ← Back to Projects
-      </button>
-
-      {/* Project Header */}
-      <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            {project.name}
-          </h1>
-
-          <p className="mt-2 max-w-2xl text-gray-500">
-            {project.description ||
-              "No description provided."}
-          </p>
-        </div>
-
-        <div className="text-sm text-gray-400">
-          Created{" "}
-          {new Date(
-            project.created_at
-          ).toLocaleDateString()}
-        </div>
-      </div>
-
-      {/* Project Source: Upload or Paste */}
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+    <div className="space-y-8 max-w-7xl">
+      {/* Top Breadcrumb & Title */}
+      <div>
+        <Link
+          href="/projects"
+          className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition mb-3"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back to Projects
+        </Link>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              Project Source
-            </h2>
-
-            <p className="mt-1 text-sm text-gray-500">
-              Upload a .zip archive, or paste a single code
-              snippet to scan quickly.
+            <h1 className="text-2xl font-extrabold tracking-tight text-white flex items-center gap-3">
+              <span>{project.name}</span>
+              <span className="rounded-full bg-indigo-500/10 px-2.5 py-0.5 text-xs font-semibold text-indigo-400 border border-indigo-500/20 font-mono">
+                Active Project
+              </span>
+            </h1>
+            <p className="mt-1 text-xs sm:text-sm text-slate-400 max-w-2xl">
+              {project.description || "Monitored codebase for automated SAST, SCA, and AI patch synthesis."}
             </p>
           </div>
 
-          <div className="flex rounded-lg border border-gray-200 p-1">
-            <button
-              onClick={() => setSourceMode("upload")}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                sourceMode === "upload"
-                  ? "bg-gray-900 text-white"
-                  : "text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              Upload .zip
-            </button>
-
-            <button
-              onClick={() => setSourceMode("paste")}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                sourceMode === "paste"
-                  ? "bg-gray-900 text-white"
-                  : "text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              Paste Code
-            </button>
+          <div className="text-xs text-slate-500 font-mono">
+            Created: {new Date(project.created_at).toLocaleDateString()}
           </div>
         </div>
+      </div>
 
-        {sourceMode === "upload" ? (
-          <div className="mt-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+      {/* Two Column Layout: Source Upload & Scan Controls */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Card 1: Source Upload / Paste */}
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              <FolderKanban className="h-4 w-4 text-indigo-400" />
+              Project Source
+            </h2>
+            <div className="flex rounded-xl bg-slate-950 p-1 border border-slate-800">
+              <button
+                onClick={() => setSourceMode("upload")}
+                className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${
+                  sourceMode === "upload" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-400 hover:text-white"
+                }`}
+              >
+                Upload .zip
+              </button>
+              <button
+                onClick={() => setSourceMode("paste")}
+                className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${
+                  sourceMode === "paste" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-400 hover:text-white"
+                }`}
+              >
+                Paste Code
+              </button>
+            </div>
+          </div>
+
+          {sourceMode === "upload" ? (
+            <div className="space-y-3 pt-2">
               <input
                 type="file"
                 accept=".zip"
-                onChange={(event) =>
-                  setUploadFile(
-                    event.target.files?.[0] ?? null
-                  )
-                }
+                onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
                 disabled={uploading}
-                className="block text-sm text-gray-600 file:mr-4 file:rounded-lg file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200"
+                className="block w-full text-xs text-slate-400 file:mr-4 file:rounded-xl file:border-0 file:bg-slate-800 file:px-4 file:py-2 file:text-xs file:font-semibold file:text-slate-200 hover:file:bg-slate-700 cursor-pointer"
               />
-
               <button
                 onClick={handleUpload}
                 disabled={uploading || !uploadFile}
-                className="rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50 transition"
               >
-                {uploading ? "Uploading..." : "Upload"}
+                <Upload className="h-3.5 w-3.5" />
+                {uploading ? "Extracting & Preparing..." : "Upload & Prepare Code"}
               </button>
-            </div>
 
-            {uploadSuccess && (
-              <div className="mt-5 rounded-lg border border-green-200 bg-green-50 p-4">
-                <p className="text-sm text-green-700">
+              {uploadSuccess && (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-3 text-xs text-emerald-300">
                   {uploadSuccess}
-                </p>
-              </div>
-            )}
-
-            {uploadError && (
-              <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4">
-                <p className="text-sm text-red-700">
+                </div>
+              )}
+              {uploadError && (
+                <div className="rounded-xl border border-rose-500/30 bg-rose-950/40 p-3 text-xs text-rose-300">
                   {uploadError}
-                </p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="mt-5 space-y-3">
-            <div>
-              <label
-                htmlFor="snippet-filename"
-                className="mb-2 block text-sm font-medium text-gray-700"
-              >
-                Filename
-              </label>
-
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3 pt-2">
               <input
-                id="snippet-filename"
                 type="text"
                 value={snippetFilename}
-                onChange={(event) =>
-                  setSnippetFilename(event.target.value)
-                }
+                onChange={(e) => setSnippetFilename(e.target.value)}
                 placeholder="snippet.py"
-                disabled={savingSnippet}
-                className="w-full max-w-xs rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-indigo-500 font-mono"
               />
-
-              <p className="mt-1 text-xs text-gray-400">
-                The extension (.py, .js, .java, etc.) tells
-                the scanner which language rules to apply.
-              </p>
-            </div>
-
-            <div>
-              <label
-                htmlFor="snippet-code"
-                className="mb-2 block text-sm font-medium text-gray-700"
-              >
-                Code
-              </label>
-
               <textarea
-                id="snippet-code"
                 value={snippetCode}
-                onChange={(event) =>
-                  setSnippetCode(event.target.value)
-                }
-                placeholder="Paste your code here..."
-                disabled={savingSnippet}
-                rows={12}
-                spellCheck={false}
-                className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 font-mono text-sm leading-6 text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                onChange={(e) => setSnippetCode(e.target.value)}
+                placeholder="Paste code snippet to scan..."
+                rows={6}
+                className="w-full resize-none rounded-xl border border-slate-800 bg-slate-950 p-3 text-xs text-slate-200 placeholder-slate-500 outline-none focus:border-indigo-500 font-mono leading-relaxed"
               />
-            </div>
+              <button
+                onClick={handleSaveSnippet}
+                disabled={savingSnippet || !snippetCode.trim()}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50 transition"
+              >
+                <FileCode className="h-3.5 w-3.5" />
+                {savingSnippet ? "Saving..." : "Save Code Snippet"}
+              </button>
 
-            <button
-              onClick={handleSaveSnippet}
-              disabled={savingSnippet || !snippetCode.trim()}
-              className="rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {savingSnippet ? "Saving..." : "Save Snippet"}
-            </button>
-
-            {snippetSuccess && (
-              <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-                <p className="text-sm text-green-700">
+              {snippetSuccess && (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-3 text-xs text-emerald-300">
                   {snippetSuccess}
-                </p>
-              </div>
-            )}
-
-            {snippetError && (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-                <p className="text-sm text-red-700">
+                </div>
+              )}
+              {snippetError && (
+                <div className="rounded-xl border border-rose-500/30 bg-rose-950/40 p-3 text-xs text-rose-300">
                   {snippetError}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
-      {/* Scan Controls */}
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-
+        {/* Card 2: Security Scan Launcher */}
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 space-y-4 flex flex-col justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              Security Scan
+            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              <Shield className="h-4 w-4 text-cyan-400" />
+              Execute Security Scan
             </h2>
-
-            <p className="mt-1 text-sm text-gray-500">
-              Run security analysis against this project.
+            <p className="mt-1 text-xs text-slate-400">
+              Run automated Semgrep static analysis (SAST) and Trivy dependency vulnerability checks (SCA).
             </p>
-          </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-
-            <div>
-              <label
-                htmlFor="scanner"
-                className="mb-2 block text-sm font-medium text-gray-700"
-              >
-                Scanner
+            <div className="mt-4 space-y-2">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Select Analysis Engine
               </label>
-
               <select
-                id="scanner"
                 value={selectedScanner}
-                onChange={(event) =>
-                  setSelectedScanner(
-                    event.target.value as ScannerType
-                  )
-                }
+                onChange={(e) => setSelectedScanner(e.target.value as ScannerType)}
                 disabled={startingScan}
-                className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
               >
-                <option value="all">
-                  All scanners
-                </option>
-
-                <option value="semgrep">
-                  Semgrep
-                </option>
-
-                <option value="trivy">
-                  Trivy
-                </option>
+                <option value="all">Hybrid Scan (Semgrep SAST + Trivy SCA)</option>
+                <option value="semgrep">Semgrep Static Analysis (SAST)</option>
+                <option value="trivy">Trivy Dependency Vulnerabilities (SCA)</option>
               </select>
             </div>
+          </div>
 
+          <div className="space-y-3">
             <button
               onClick={handleStartScan}
               disabled={startingScan}
-              className="rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-500 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-indigo-600/30 hover:opacity-90 disabled:opacity-50 transition"
             >
-              {startingScan
-                ? "Running scan..."
-                : "Start Scan"}
+              {startingScan ? (
+                <>
+                  <div className="h-3.5 w-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                  <span>Scanning Codebase...</span>
+                </>
+              ) : (
+                <>
+                  <Play className="h-3.5 w-3.5 fill-white" />
+                  <span>Launch Automated Scan</span>
+                </>
+              )}
             </button>
 
-          </div>
-        </div>
-
-        {startingScan && (
-          <div className="mt-5 rounded-lg border border-blue-200 bg-blue-50 p-4">
-            <p className="text-sm font-medium text-blue-700">
-              Security scan is running...
-            </p>
-
-            <p className="mt-1 text-xs text-blue-600">
-              Semgrep and/or Trivy may take a few moments
-              to complete.
-            </p>
-          </div>
-        )}
-
-        {scanError && (
-          <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4">
-            <p className="text-sm text-red-700">
-              {scanError}
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Latest Security Result */}
-      <div>
-        <div className="mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">
-            Security Overview
-          </h2>
-
-          <p className="mt-1 text-sm text-gray-500">
-            Latest security analysis for this project.
-          </p>
-        </div>
-
-        {!latestScan ? (
-          <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center">
-            <h3 className="text-lg font-semibold text-gray-900">
-              No scans yet
-            </h3>
-
-            <p className="mt-2 text-sm text-gray-500">
-              Run your first security scan to see
-              vulnerabilities and security score.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-5">
-
-            {/* Score */}
-            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-5">
-
-              <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm lg:col-span-2">
-                <p className="text-sm text-gray-500">
-                  Security Score
-                </p>
-
-                <div className="mt-3 flex items-end gap-3">
-                  <span className="text-5xl font-bold text-gray-900">
-                    {latestScan.security_score ?? "—"}
-                  </span>
-
-                  {latestScan.security_score !== null &&
-                    latestScan.security_score !==
-                      undefined && (
-                      <span className="mb-2 text-sm text-gray-500">
-                        / 100
-                      </span>
-                    )}
-                </div>
-
-                <p className="mt-2 text-sm text-gray-500">
-                  {getScoreLabel(
-                    latestScan.security_score
-                  )}
-                </p>
-              </div>
-
-              {/* Critical */}
-              <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                <p className="text-sm text-gray-500">
-                  Critical
-                </p>
-
-                <p
-                  className={`mt-3 text-3xl font-bold ${getSeverityClass(
-                    latestScan.critical_count
-                  )}`}
-                >
-                  {latestScan.critical_count}
-                </p>
-              </div>
-
-              {/* High */}
-              <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                <p className="text-sm text-gray-500">
-                  High
-                </p>
-
-                <p
-                  className={`mt-3 text-3xl font-bold ${getSeverityClass(
-                    latestScan.high_count
-                  )}`}
-                >
-                  {latestScan.high_count}
-                </p>
-              </div>
-
-              {/* Total */}
-              <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                <p className="text-sm text-gray-500">
-                  Total Findings
-                </p>
-
-                <p className="mt-3 text-3xl font-bold text-gray-900">
-                  {latestScan.total_findings}
-                </p>
-              </div>
-            </div>
-
-            {/* Medium / Low */}
-            <div className="grid gap-5 md:grid-cols-2">
-
-              <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                <p className="text-sm text-gray-500">
-                  Medium
-                </p>
-
-                <p
-                  className={`mt-3 text-3xl font-bold ${getSeverityClass(
-                    latestScan.medium_count
-                  )}`}
-                >
-                  {latestScan.medium_count}
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                <p className="text-sm text-gray-500">
-                  Low
-                </p>
-
-                <p
-                  className={`mt-3 text-3xl font-bold ${getSeverityClass(
-                    latestScan.low_count
-                  )}`}
-                >
-                  {latestScan.low_count}
-                </p>
-              </div>
-
-            </div>
-
-            {/* Summary */}
-            {latestScan.summary && (
-              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <p className="text-sm font-medium text-gray-700">
-                  Scan Summary
-                </p>
-
-                <p className="mt-2 text-sm leading-6 text-gray-500">
-                  {latestScan.summary}
-                </p>
+            {scanError && (
+              <div className="rounded-xl border border-rose-500/30 bg-rose-950/40 p-3 text-xs text-rose-300">
+                {scanError}
               </div>
             )}
-
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Scan History */}
-      <div>
-        <div className="mb-4 flex items-center justify-between">
-
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">
-              Scan History
-            </h2>
-
-            <p className="mt-1 text-sm text-gray-500">
-              Previous security scans for this project.
+      {/* Security Posture Overview (Latest Scan) */}
+      {latestScan && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Security Score</span>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold text-white">
+                {latestScan.security_score ?? "—"}
+              </span>
+              <span className="text-xs text-slate-500">/ 100</span>
+            </div>
+            <p className="mt-1 text-xs text-emerald-400 font-medium">
+              {latestScan.security_score && latestScan.security_score >= 80
+                ? "Good Standing"
+                : "Remediation Recommended"}
             </p>
           </div>
 
-          <span className="text-sm text-gray-500">
-            {scans.length}{" "}
-            {scans.length === 1 ? "scan" : "scans"}
-          </span>
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Findings</span>
+            <p className="mt-2 text-3xl font-extrabold text-white">{latestScan.total_findings}</p>
+            <p className="mt-1 text-xs text-slate-400">Flagged across scan rules</p>
+          </div>
 
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Critical Alerts</span>
+            <p className="mt-2 text-3xl font-extrabold text-rose-400">{latestScan.critical_count}</p>
+            <p className="mt-1 text-xs text-slate-400">Immediate action required</p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">High Alerts</span>
+            <p className="mt-2 text-3xl font-extrabold text-orange-400">{latestScan.high_count}</p>
+            <p className="mt-1 text-xs text-slate-400">High priority vulnerability</p>
+          </div>
+        </div>
+      )}
+
+      {/* Scan History Table */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-bold text-white">Scan History</h2>
+          <span className="text-xs text-slate-400 font-mono">
+            {scans.length} {scans.length === 1 ? "scan" : "scans"} recorded
+          </span>
         </div>
 
         {loadingScans ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-gray-500">
-            Loading scans...
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-8 text-center text-xs text-slate-500">
+            Loading scan history...
           </div>
         ) : scans.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center">
-            <p className="text-sm text-gray-500">
-              No scan history available.
-            </p>
+          <div className="rounded-2xl border border-dashed border-slate-800 p-8 text-center text-xs text-slate-400">
+            No scans executed yet. Click &quot;Launch Automated Scan&quot; above to start.
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-
-                <thead className="border-b border-gray-200 bg-gray-50">
-                  <tr>
-                    <th className="px-5 py-4 font-medium text-gray-600">
-                      Scanner
-                    </th>
-
-                    <th className="px-5 py-4 font-medium text-gray-600">
-                      Status
-                    </th>
-
-                    <th className="px-5 py-4 font-medium text-gray-600">
-                      Score
-                    </th>
-
-                    <th className="px-5 py-4 font-medium text-gray-600">
-                      Findings
-                    </th>
-
-                    <th className="px-5 py-4 font-medium text-gray-600">
-                      Date
-                    </th>
-
-                    <th className="px-5 py-4 font-medium text-gray-600">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-gray-100">
-
-                  {scans.map((scan) => (
-                    <tr
-                      key={scan.id}
-                      className="transition hover:bg-gray-50"
-                    >
-
-                      <td className="px-5 py-4">
-                        <span className="font-medium text-gray-900">
-                          {scan.scanner || "Unknown"}
-                        </span>
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClass(
-                            scan.status
-                          )}`}
+          <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
+            <table className="w-full text-left text-xs text-slate-300">
+              <thead className="border-b border-slate-800 bg-slate-950/70 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <tr>
+                  <th className="px-5 py-3">Scanner</th>
+                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3">Score</th>
+                  <th className="px-5 py-3">Findings</th>
+                  <th className="px-5 py-3">Timestamp</th>
+                  <th className="px-5 py-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {scans.map((scan) => (
+                  <tr key={scan.id} className="hover:bg-slate-800/40 transition">
+                    <td className="px-5 py-3 font-semibold text-white uppercase font-mono">
+                      {scan.scanner || "hybrid"}
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-mono text-slate-300 border border-slate-700">
+                        {scan.status}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 font-mono font-bold text-white">
+                      {scan.security_score ?? "—"}
+                    </td>
+                    <td className="px-5 py-3">
+                      <span
+                        className={`font-semibold ${
+                          scan.total_findings > 0 ? "text-amber-400" : "text-emerald-400"
+                        }`}
+                      >
+                        {scan.total_findings} findings
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-slate-500 font-mono text-[11px]">
+                      {new Date(scan.created_at).toLocaleString()}
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      {scan.status === "completed" && scan.total_findings > 0 ? (
+                        <button
+                          onClick={() => handleViewFindings(scan)}
+                          className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white transition"
                         >
-                          {scan.status}
-                        </span>
-                      </td>
-
-                      <td className="px-5 py-4 font-medium text-gray-900">
-                        {scan.security_score ?? "—"}
-                      </td>
-
-                      <td className="px-5 py-4 text-gray-600">
-                        {scan.total_findings}
-                      </td>
-
-                      <td className="px-5 py-4 text-gray-500">
-                        {new Date(
-                          scan.created_at
-                        ).toLocaleString()}
-                      </td>
-
-                      <td className="px-5 py-4">
-                        {scan.status === "completed" &&
-                        scan.total_findings > 0 ? (
-                          <button
-                            onClick={() =>
-                              handleViewFindings(scan)
-                            }
-                            className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50"
-                          >
-                            View Findings
-                          </button>
-                        ) : (
-                          <span className="text-xs text-gray-400">
-                            No findings
-                          </span>
-                        )}
-                      </td>
-
-                    </tr>
-                  ))}
-
-                </tbody>
-
-              </table>
-            </div>
-
+                          View Findings
+                        </button>
+                      ) : (
+                        <span className="text-slate-600">Clean</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
 
-      {/* Findings Section */}
+      {/* Selected Scan Findings Section */}
       {selectedScan && (
-        <div className="space-y-5">
-
+        <div className="space-y-5 pt-4 border-t border-slate-800">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">
-                Findings
+              <h2 className="text-lg font-bold text-white">
+                Findings ({findings.length})
               </h2>
-
-              <p className="mt-1 text-sm text-gray-500">
-                Findings from the{" "}
-                {selectedScan.scanner || "selected"} scan.
+              <p className="text-xs text-slate-400">
+                Results from {selectedScan.scanner || "selected"} scan. Select a finding below or open its dedicated analysis page.
               </p>
             </div>
-
             <button
               onClick={() => {
                 setSelectedScan(null);
                 setFindings([]);
                 setSelectedFinding(null);
-                setFindingError("");
               }}
-              className="text-sm text-gray-500 hover:text-gray-900"
+              className="text-xs text-slate-400 hover:text-white transition"
             >
-              Close
+              Close Findings
             </button>
           </div>
 
           {findingError && (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-              <p className="text-sm text-red-700">
-                {findingError}
-              </p>
+            <div className="rounded-xl border border-rose-500/30 bg-rose-950/40 p-4 text-xs text-rose-300">
+              {findingError}
             </div>
           )}
 
           {loadingFindings ? (
-            <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-gray-500">
-              Loading findings...
-            </div>
+            <div className="p-8 text-center text-xs text-slate-400">Loading findings...</div>
           ) : findings.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center">
-              <p className="text-sm text-gray-500">
-                No findings found for this scan.
-              </p>
+            <div className="rounded-2xl border border-dashed border-slate-800 p-8 text-center text-xs text-slate-400">
+              Zero vulnerabilities detected in this scan.
             </div>
           ) : (
-            <div className="grid gap-5 lg:grid-cols-2">
-
+            <div className="grid gap-6 lg:grid-cols-2">
               {/* Finding list */}
-              <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
-
-                <div className="border-b border-gray-200 px-5 py-4">
-                  <h3 className="font-semibold text-gray-900">
-                    Security Findings
-                  </h3>
-
-                  <p className="mt-1 text-xs text-gray-500">
-                    {findings.length} finding
-                    {findings.length === 1 ? "" : "s"}
-                  </p>
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden">
+                <div className="border-b border-slate-800 px-5 py-3.5 bg-slate-950/60 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  Vulnerability List
                 </div>
 
-                <div className="divide-y divide-gray-100">
-
+                <div className="divide-y divide-slate-800/60 max-h-[560px] overflow-y-auto">
                   {findings.map((finding) => (
                     <div
                       key={finding.id}
-                      className={`group flex items-center justify-between border-b border-gray-100 px-5 py-4 transition hover:bg-gray-50/80 ${
+                      className={`flex items-center justify-between p-4 transition hover:bg-slate-800/40 ${
                         selectedFinding?.id === finding.id
-                          ? "bg-indigo-50/40 border-l-4 border-l-indigo-600"
+                          ? "bg-indigo-950/30 border-l-4 border-l-indigo-500"
                           : ""
                       }`}
                     >
@@ -1269,291 +749,91 @@ export default function ProjectPage() {
                         onClick={() => handleViewFinding(finding)}
                         className="flex-1 text-left min-w-0 pr-3 focus:outline-none"
                       >
-                        <p className="font-medium text-gray-900 group-hover:text-indigo-600 transition truncate">
+                        <p className="font-semibold text-white text-xs sm:text-sm truncate">
                           {finding.title}
                         </p>
-
-                        <p className="mt-1 text-xs text-gray-500">
-                          <span className="font-semibold text-gray-700">{finding.scanner}</span>
-                          {finding.file_path
-                            ? ` • ${finding.file_path}`
-                            : ""}
-                          {finding.start_line
-                            ? ` : ${finding.start_line}`
-                            : ""}
+                        <p className="mt-1 text-xs text-slate-500 font-mono truncate">
+                          {finding.scanner} • {finding.file_path || "source"} {finding.start_line ? `:${finding.start_line}` : ""}
                         </p>
                       </button>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${getFindingSeverityClass(
-                            finding.severity
-                          )}`}
-                        >
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${getSeverityClass(finding.severity)}`}>
                           {finding.severity}
                         </span>
 
                         <Link
                           href={`/projects/${projectId}/findings/${finding.id}`}
                           title="Open dedicated analysis page in full screen"
-                          className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 shadow-xs hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 transition"
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-semibold text-indigo-300 hover:bg-indigo-600 hover:text-white transition"
                         >
                           <span>Open</span>
-                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
+                          <ArrowRight className="h-3 w-3" />
                         </Link>
                       </div>
                     </div>
                   ))}
-
                 </div>
               </div>
 
-              {/* Finding Details */}
-              <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
-
-                <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-                  <h3 className="font-semibold text-gray-900">
-                    Finding Details
-                  </h3>
-
+              {/* Quick Preview & Action Drawer */}
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 space-y-5">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <h3 className="text-sm font-bold text-white">Finding Quick Triage</h3>
                   {selectedFinding && (
                     <Link
                       href={`/projects/${projectId}/findings/${selectedFinding.id}`}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition shadow-2xs"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 transition"
                     >
                       <span>Full Analysis Page</span>
-                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                      </svg>
+                      <ArrowRight className="h-3 w-3" />
                     </Link>
                   )}
                 </div>
 
                 {!selectedFinding ? (
-                  <div className="p-8 text-center">
-                    <p className="text-sm text-gray-500">
-                      Select a finding to view its details.
-                    </p>
-                  </div>
+                  <p className="text-xs text-slate-500 text-center py-12">
+                    Select a finding on the left to inspect code context and remediation.
+                  </p>
                 ) : loadingFindingDetail ? (
-                  <div className="p-8 text-center">
-                    <p className="text-sm text-gray-500">
-                      Loading finding details...
-                    </p>
-                  </div>
+                  <p className="text-xs text-slate-500 text-center py-12">Loading finding details...</p>
                 ) : (
-                  <div className="space-y-6 p-5">
-
-                    {/* Title */}
+                  <div className="space-y-5">
                     <div>
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <h4 className="text-lg font-semibold text-gray-900">
-                          {selectedFinding.title}
-                        </h4>
-
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-medium ${getFindingSeverityClass(
-                            selectedFinding.severity
-                          )}`}
-                        >
-                          {selectedFinding.severity}
-                        </span>
-                      </div>
+                      <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${getSeverityClass(selectedFinding.severity)}`}>
+                        {selectedFinding.severity}
+                      </span>
+                      <h4 className="mt-2 text-base font-bold text-white">{selectedFinding.title}</h4>
+                      <p className="mt-1 text-xs text-slate-400 font-mono">
+                        {selectedFinding.file_path} {selectedFinding.start_line ? `(Line ${selectedFinding.start_line})` : ""}
+                      </p>
                     </div>
 
-                    {/* AI Actions */}
-                    <div className="flex flex-wrap gap-3">
+                    <div className="flex flex-wrap gap-2">
                       <button
                         onClick={handleExplainFinding}
                         disabled={loadingExplanation}
-                        className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 hover:text-white transition disabled:opacity-50"
                       >
-                        {loadingExplanation
-                          ? "Analyzing..."
-                          : "Explain with AI"}
+                        {loadingExplanation ? "Analyzing..." : "Explain with AI"}
                       </button>
-
                       <button
                         onClick={handleSuggestFix}
                         disabled={loadingRemediation}
-                        className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 hover:text-white transition disabled:opacity-50"
                       >
-                        {loadingRemediation
-                          ? "Generating fix..."
-                          : "Suggest Fix"}
+                        {loadingRemediation ? "Generating Fix..." : "Suggest Fix"}
                       </button>
-
-                      <Link
-                        href={`/projects/${projectId}/findings/${selectedFinding.id}`}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:bg-indigo-700 transition"
-                      >
-                        <span>Open Dedicated View</span>
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                      </Link>
                     </div>
 
-                    {loadingExplanation && (
-                      <p className="text-xs text-gray-500">
-                        The local AI model is analyzing this
-                        finding — this can take up to a few
-                        minutes on the first run.
-                      </p>
-                    )}
-
-                    {explainError && (
-                      <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-                        <p className="text-sm text-red-700">
-                          {explainError}
-                        </p>
-                      </div>
-                    )}
-
-                    {loadingRemediation && (
-                      <p className="text-xs text-gray-500">
-                        The local AI model is generating and
-                        validating a fix — this can take a
-                        few minutes.
-                      </p>
-                    )}
-
-                    {remediateError && (
-                      <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-                        <p className="text-sm text-red-700">
-                          {remediateError}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Metadata */}
-                    <div className="grid gap-4 sm:grid-cols-2">
-
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                          Scanner
-                        </p>
-
-                        <p className="mt-1 text-sm text-gray-900">
-                          {selectedFinding.scanner}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                          Rule ID
-                        </p>
-
-                        <p className="mt-1 break-all text-sm text-gray-900">
-                          {selectedFinding.rule_id ||
-                            "Not provided"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                          File
-                        </p>
-
-                        <p className="mt-1 break-all text-sm text-gray-900">
-                          {selectedFinding.file_path ||
-                            "Not provided"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                          Line
-                        </p>
-
-                        <p className="mt-1 text-sm text-gray-900">
-                          {selectedFinding.start_line
-                            ? selectedFinding.end_line &&
-                              selectedFinding.end_line !==
-                                selectedFinding.start_line
-                              ? `${selectedFinding.start_line}-${selectedFinding.end_line}`
-                              : selectedFinding.start_line
-                            : "Not provided"}
-                        </p>
-                      </div>
-
-                    </div>
-
-                    {/* Description */}
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                        Description
-                      </p>
-
-                      <p className="mt-2 text-sm leading-6 text-gray-600">
-                        {selectedFinding.description ||
-                          "No description provided."}
-                      </p>
-                    </div>
-
-                    {/* Code Snippet */}
-                    {selectedFinding.code_snippet && (
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                          Code Snippet
-                        </p>
-
-                        <pre className="mt-2 overflow-x-auto rounded-lg bg-gray-950 p-4 text-xs leading-6 text-gray-100">
-                          <code>
-                            {selectedFinding.code_snippet}
-                          </code>
-                        </pre>
-                      </div>
-                    )}
-
-                    {/* AI Explanation */}
                     {explanation && (
-                      <div className="space-y-4 rounded-lg border border-indigo-200 bg-indigo-50 p-5">
-                        <p className="text-sm font-semibold text-indigo-900">
-                          AI Explanation
-                        </p>
-
-                        <div>
-                          <p className="text-xs font-medium uppercase tracking-wide text-indigo-400">
-                            Root Cause
-                          </p>
-                          <p className="mt-1 text-sm text-indigo-900">
-                            {explanation.root_cause}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs font-medium uppercase tracking-wide text-indigo-400">
-                            Attack Vector
-                          </p>
-                          <p className="mt-1 text-sm text-indigo-900">
-                            {explanation.attack_vector}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs font-medium uppercase tracking-wide text-indigo-400">
-                            Impact
-                          </p>
-                          <p className="mt-1 text-sm text-indigo-900">
-                            {explanation.impact}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs font-medium uppercase tracking-wide text-indigo-400">
-                            Recommendation
-                          </p>
-                          <p className="mt-1 text-sm text-indigo-900">
-                            {explanation.recommendation}
-                          </p>
-                        </div>
+                      <div className="rounded-xl bg-slate-950 p-4 border border-slate-800 text-xs space-y-2">
+                        <p className="font-semibold text-indigo-400">AI Root Cause Analysis:</p>
+                        <p className="text-slate-300 leading-relaxed">{explanation.root_cause}</p>
                       </div>
                     )}
 
-                    {/* Remediation & Verification Pipeline */}
+                    {/* Quick Remediation Pipeline */}
                     <RemediationManager
                       findingId={selectedFinding.id}
                       projectId={projectId}
@@ -1561,18 +841,13 @@ export default function ProjectPage() {
                       filePath={selectedFinding.file_path}
                       suggestedRemediation={remediation}
                     />
-
                   </div>
                 )}
-
               </div>
-
             </div>
           )}
-
         </div>
       )}
-
     </div>
   );
 }

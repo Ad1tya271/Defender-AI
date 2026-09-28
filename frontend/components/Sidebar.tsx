@@ -9,6 +9,7 @@ import {
   Settings,
   LogOut,
   Shield,
+  ExternalLink,
 } from "lucide-react";
 
 const navigation = [
@@ -41,28 +42,30 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-gray-200 bg-white shadow-sm">
+    <aside className="flex h-screen w-64 flex-col border-r border-slate-800/80 bg-slate-950/95 backdrop-blur-md sticky top-0 shrink-0">
       {/* Brand Logo */}
-      <div className="flex h-16 items-center border-b border-gray-200 px-6">
-        <Link href="/dashboard" className="flex items-center gap-3 group">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-black text-white shadow-sm group-hover:bg-indigo-600 transition">
-            <Shield className="h-5 w-5" />
+      <div className="flex h-16 items-center border-b border-slate-800/80 px-6">
+        <Link href="/" className="flex items-center gap-3 group">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-400 p-0.5 shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform">
+            <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-slate-950">
+              <Shield className="h-4.5 w-4.5 text-indigo-400" />
+            </div>
           </div>
           <div>
-            <span className="text-base font-bold tracking-tight text-gray-900 block leading-tight">
+            <span className="text-base font-extrabold tracking-tight text-white block leading-tight">
               DefenderAI
             </span>
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-indigo-600 block">
-              Security Platform
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400 block">
+              Sovereign AppSec
             </span>
           </div>
         </Link>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-6 space-y-6">
+      <nav className="flex-1 px-3 py-6 space-y-6 overflow-y-auto">
         <div>
-          <p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-wider text-gray-400">
+          <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">
             Workspace
           </p>
 
@@ -78,13 +81,13 @@ export default function Sidebar() {
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
                     isActive
-                      ? "bg-slate-900 text-white shadow-sm"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                      ? "bg-indigo-600/20 text-white border border-indigo-500/30 shadow-xs shadow-indigo-500/10"
+                      : "text-slate-400 hover:bg-slate-900 hover:text-white"
                   }`}
                 >
-                  <Icon className={`h-4 w-4 ${isActive ? "text-indigo-400" : "text-gray-500"}`} />
+                  <Icon className={`h-4 w-4 ${isActive ? "text-indigo-400" : "text-slate-500"}`} />
                   {item.name}
                 </Link>
               );
@@ -93,40 +96,40 @@ export default function Sidebar() {
         </div>
 
         <div>
-          <p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-wider text-gray-400">
-            System
+          <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            System & Diagnostics
           </p>
           <Link
             href="/settings"
-            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
               pathname === "/settings"
-                ? "bg-slate-900 text-white shadow-sm"
-                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                ? "bg-indigo-600/20 text-white border border-indigo-500/30 shadow-xs shadow-indigo-500/10"
+                : "text-slate-400 hover:bg-slate-900 hover:text-white"
             }`}
           >
-            <Settings className={`h-4 w-4 ${pathname === "/settings" ? "text-indigo-400" : "text-gray-500"}`} />
-            Settings & Diagnostics
+            <Settings className={`h-4 w-4 ${pathname === "/settings" ? "text-indigo-400" : "text-slate-500"}`} />
+            Diagnostics & Health
           </Link>
         </div>
       </nav>
 
       {/* Bottom Profile & Logout */}
-      <div className="border-t border-gray-200 p-3 space-y-2">
-        <div className="flex items-center justify-between rounded-lg bg-gray-50 p-2.5 border border-gray-100">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
+      <div className="border-t border-slate-800/80 p-3 space-y-2 bg-slate-950">
+        <div className="flex items-center justify-between rounded-xl bg-slate-900/70 p-2.5 border border-slate-800">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-xs font-bold text-white shadow-xs">
               DA
             </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-900 leading-none">Security Analyst</p>
-              <p className="text-[10px] text-gray-500 mt-0.5">Local Workstation</p>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-white leading-none truncate">Security Analyst</p>
+              <p className="text-[10px] text-slate-400 mt-1 truncate">Local Workstation</p>
             </div>
           </div>
 
           <button
             onClick={handleLogout}
             title="Log out of DefenderAI"
-            className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition"
+            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
           >
             <LogOut className="h-4 w-4" />
           </button>

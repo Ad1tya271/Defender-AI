@@ -13,13 +13,13 @@ import {
   ChevronRight,
   Code2,
   Copy,
-  ExternalLink,
   FileCode,
   FlaskConical,
   Info,
   RefreshCw,
   Shield,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
   Terminal,
 } from "lucide-react";
@@ -180,32 +180,32 @@ export default function FindingDetailPage() {
     switch (severity.toLowerCase()) {
       case "critical":
         return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-800 border border-rose-200">
-            <AlertOctagon className="h-3.5 w-3.5 text-rose-600" /> Critical Severity
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-950/60 px-3 py-1 text-xs font-bold text-rose-300 border border-rose-500/30">
+            <AlertOctagon className="h-3.5 w-3.5 text-rose-400" /> Critical Severity
           </span>
         );
       case "high":
         return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-800 border border-orange-200">
-            <AlertTriangle className="h-3.5 w-3.5 text-orange-600" /> High Severity
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-950/60 px-3 py-1 text-xs font-bold text-orange-300 border border-orange-500/30">
+            <AlertTriangle className="h-3.5 w-3.5 text-orange-400" /> High Severity
           </span>
         );
       case "medium":
         return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800 border border-amber-200">
-            <ShieldAlert className="h-3.5 w-3.5 text-amber-600" /> Medium Severity
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-950/60 px-3 py-1 text-xs font-bold text-amber-300 border border-amber-500/30">
+            <ShieldAlert className="h-3.5 w-3.5 text-amber-400" /> Medium Severity
           </span>
         );
       case "low":
         return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-800 border border-blue-200">
-            <Shield className="h-3.5 w-3.5 text-blue-600" /> Low Severity
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-950/60 px-3 py-1 text-xs font-bold text-indigo-300 border border-indigo-500/30">
+            <Shield className="h-3.5 w-3.5 text-indigo-400" /> Low Severity
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700 border border-slate-200">
-            <Info className="h-3.5 w-3.5 text-slate-500" /> Informational
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-slate-300 border border-slate-700">
+            <Info className="h-3.5 w-3.5 text-slate-400" /> Informational
           </span>
         );
     }
@@ -214,8 +214,8 @@ export default function FindingDetailPage() {
   if (loading) {
     return (
       <div className="flex h-96 flex-col items-center justify-center space-y-4">
-        <RefreshCw className="h-8 w-8 animate-spin text-indigo-600" />
-        <p className="text-sm font-medium text-gray-500">Loading comprehensive vulnerability analysis...</p>
+        <RefreshCw className="h-8 w-8 animate-spin text-indigo-500" />
+        <p className="text-sm font-medium text-slate-400">Loading comprehensive vulnerability analysis...</p>
       </div>
     );
   }
@@ -223,13 +223,13 @@ export default function FindingDetailPage() {
   if (error || !finding) {
     return (
       <div className="space-y-4 max-w-2xl mx-auto mt-12">
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-center space-y-3">
-          <AlertOctagon className="mx-auto h-8 w-8 text-rose-600" />
-          <h2 className="text-lg font-bold text-rose-900">Finding Not Found or Unauthorized</h2>
-          <p className="text-xs text-rose-700">{error || "The requested vulnerability finding does not exist."}</p>
+        <div className="rounded-2xl border border-rose-500/30 bg-rose-950/40 p-8 text-center space-y-3">
+          <AlertOctagon className="mx-auto h-8 w-8 text-rose-400" />
+          <h2 className="text-lg font-bold text-white">Finding Not Found or Unauthorized</h2>
+          <p className="text-xs text-rose-300">{error || "The requested vulnerability finding does not exist."}</p>
           <Link
             href={`/projects/${projectId}`}
-            className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-500 transition"
+            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-500 transition"
           >
             <ArrowLeft className="h-4 w-4" /> Back to Project Findings
           </Link>
@@ -241,34 +241,34 @@ export default function FindingDetailPage() {
   return (
     <div className="space-y-8 max-w-6xl mx-auto pb-16">
       {/* Top Breadcrumb & Sequential Triage Navigation */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-200 pb-4">
-        <div className="flex items-center gap-2 text-xs text-gray-500">
-          <Link href="/dashboard" className="hover:text-indigo-600 transition">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+        <div className="flex items-center gap-2 text-xs text-slate-400">
+          <Link href="/dashboard" className="hover:text-white transition">
             Dashboard
           </Link>
           <span>/</span>
-          <Link href="/projects" className="hover:text-indigo-600 transition">
+          <Link href="/projects" className="hover:text-white transition">
             Projects
           </Link>
           <span>/</span>
-          <Link href={`/projects/${projectId}`} className="hover:text-indigo-600 font-medium text-gray-700 transition">
+          <Link href={`/projects/${projectId}`} className="hover:text-white font-medium text-slate-300 transition">
             {project?.name || "Project"}
           </Link>
           <span>/</span>
-          <span className="font-semibold text-gray-900 truncate max-w-xs">{finding.rule_id || "Finding"}</span>
+          <span className="font-semibold text-white truncate max-w-xs">{finding.rule_id || "Finding"}</span>
         </div>
 
         {/* Previous / Next Triage Buttons */}
         {allScanFindings.length > 1 && (
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400 font-medium">
+            <span className="text-xs text-slate-500 font-medium">
               Finding {currentIndex + 1} of {allScanFindings.length}
             </span>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => prevFinding && router.push(`/projects/${projectId}/findings/${prevFinding.id}`)}
                 disabled={!prevFinding}
-                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition"
                 title={prevFinding?.title || "Previous finding"}
               >
                 <ChevronLeft className="h-3.5 w-3.5" /> Prev
@@ -276,7 +276,7 @@ export default function FindingDetailPage() {
               <button
                 onClick={() => nextFinding && router.push(`/projects/${projectId}/findings/${nextFinding.id}`)}
                 disabled={!nextFinding}
-                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition"
                 title={nextFinding?.title || "Next finding"}
               >
                 Next <ChevronRight className="h-3.5 w-3.5" />
@@ -287,16 +287,16 @@ export default function FindingDetailPage() {
       </div>
 
       {/* Vulnerability Header Banner */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2.5">
             {getSeverityBadge(finding.severity)}
-            <span className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white uppercase tracking-wider">
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-200 uppercase tracking-wider font-mono border border-slate-700">
               <Terminal className="h-3 w-3" />
               {finding.scanner === "semgrep" ? "Semgrep SAST" : "Trivy SCA"}
             </span>
             {finding.rule_id && (
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-mono font-medium text-slate-700 border border-slate-200">
+              <span className="rounded-full bg-slate-800 px-2.5 py-1 text-xs font-mono text-indigo-300 border border-slate-700">
                 {finding.rule_id}
               </span>
             )}
@@ -304,40 +304,40 @@ export default function FindingDetailPage() {
 
           <Link
             href={`/projects/${projectId}`}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-indigo-600 transition"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white transition"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Back to Project
           </Link>
         </div>
 
-        <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 leading-snug">
+        <h1 className="text-2xl font-extrabold tracking-tight text-white leading-snug">
           {finding.title}
         </h1>
 
         {/* Location & Metadata Bar */}
-        <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-gray-100 text-xs text-gray-600">
+        <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-slate-800 text-xs text-slate-400">
           {finding.file_path && (
-            <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200 font-mono">
-              <FileCode className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
-              <span className="font-semibold text-gray-800">{finding.file_path}</span>
+            <div className="flex items-center gap-1.5 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 font-mono">
+              <FileCode className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+              <span className="font-semibold text-slate-200">{finding.file_path}</span>
               {finding.start_line && (
-                <span className="text-indigo-600 font-bold ml-1">
+                <span className="text-indigo-400 font-bold ml-1">
                   Line {finding.start_line}
                   {finding.end_line && finding.end_line !== finding.start_line ? `-${finding.end_line}` : ""}
                 </span>
               )}
               <button
                 onClick={handleCopyPath}
-                className="ml-2 text-gray-400 hover:text-gray-700"
+                className="ml-2 text-slate-500 hover:text-white transition"
                 title="Copy relative file path"
               >
-                {copiedPath ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                {copiedPath ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
               </button>
             </div>
           )}
 
-          <span className="text-gray-400">
-            Detected: <strong>{new Date(finding.created_at).toLocaleString()}</strong>
+          <span className="text-slate-500">
+            Detected: <strong className="text-slate-400">{new Date(finding.created_at).toLocaleString()}</strong>
           </span>
         </div>
       </div>
@@ -347,14 +347,14 @@ export default function FindingDetailPage() {
         {/* Left 2 Cols: Code Context & Remediation Hub */}
         <div className="space-y-8 lg:col-span-2">
           {/* 1. Code Snippet Context Window */}
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-              <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                <Code2 className="h-4 w-4 text-indigo-600" />
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Code2 className="h-4 w-4 text-indigo-400" />
                 Vulnerable Code Context
               </h3>
               {finding.start_line && (
-                <span className="text-xs text-indigo-600 font-mono font-semibold">
+                <span className="text-xs text-indigo-400 font-mono font-semibold">
                   Lines {Math.max(1, finding.start_line - 5)} - {(finding.end_line || finding.start_line) + 5}
                 </span>
               )}
@@ -371,16 +371,16 @@ export default function FindingDetailPage() {
                 </pre>
               </div>
             ) : (
-              <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center text-xs text-gray-500">
+              <div className="rounded-xl border border-dashed border-slate-800 p-6 text-center text-xs text-slate-500">
                 Code context could not be extracted directly from disk.
               </div>
             )}
 
             {/* Finding Description / Taxonomy */}
             {finding.description && (
-              <div className="space-y-1 pt-2">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400">Scanner Advisory</h4>
-                <div className="rounded-lg bg-gray-50 p-4 text-xs text-gray-700 leading-relaxed border border-gray-100 whitespace-pre-wrap">
+              <div className="space-y-1.5 pt-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Scanner Advisory</h4>
+                <div className="rounded-xl bg-slate-950 p-4 text-xs text-slate-300 leading-relaxed border border-slate-800 whitespace-pre-wrap">
                   {finding.description}
                 </div>
               </div>
@@ -388,14 +388,14 @@ export default function FindingDetailPage() {
           </div>
 
           {/* 2. Interactive Remediation & Verification Sandbox Hub */}
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 pb-4">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
               <div>
-                <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                  <FlaskConical className="h-5 w-5 text-emerald-600" />
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <FlaskConical className="h-5 w-5 text-emerald-400" />
                   Verified Remediation Sandbox
                 </h3>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-xs text-slate-400 mt-0.5">
                   Generate fixes, inspect unified diffs, run isolated sandbox re-scans, and safely apply patches.
                 </p>
               </div>
@@ -404,7 +404,7 @@ export default function FindingDetailPage() {
                 <button
                   onClick={handleSuggestFix}
                   disabled={loadingRemediate}
-                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-500 disabled:opacity-50 transition"
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-emerald-600/30 hover:bg-emerald-500 disabled:opacity-50 transition"
                 >
                   <Sparkles className={`h-4 w-4 ${loadingRemediate ? "animate-spin" : ""}`} />
                   {loadingRemediate ? "Generating AI Fix..." : "Generate AI Fix"}
@@ -413,7 +413,7 @@ export default function FindingDetailPage() {
             </div>
 
             {remediateError && (
-              <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+              <div className="rounded-xl border border-rose-500/30 bg-rose-950/40 p-3 text-xs text-rose-300">
                 {remediateError}
               </div>
             )}
@@ -431,17 +431,17 @@ export default function FindingDetailPage() {
 
         {/* Right 1 Col: AI Security Intelligence */}
         <div className="space-y-6">
-          <div className="rounded-xl border border-indigo-200 bg-gradient-to-b from-indigo-50/50 via-white to-white p-6 shadow-sm space-y-5">
-            <div className="flex items-center justify-between border-b border-indigo-100 pb-3">
-              <h3 className="text-sm font-bold text-indigo-950 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-indigo-600" />
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-indigo-400" />
                 AI Security Intelligence
               </h3>
               {!explanation && (
                 <button
                   onClick={handleExplain}
                   disabled={loadingExplain}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 transition"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50 transition"
                 >
                   <Sparkles className={`h-3 w-3 ${loadingExplain ? "animate-spin" : ""}`} />
                   {loadingExplain ? "Analyzing..." : "Explain Finding"}
@@ -450,7 +450,7 @@ export default function FindingDetailPage() {
             </div>
 
             {explainError && (
-              <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+              <div className="rounded-xl border border-rose-500/30 bg-rose-950/40 p-3 text-xs text-rose-300">
                 {explainError}
               </div>
             )}
@@ -458,46 +458,46 @@ export default function FindingDetailPage() {
             {explanation ? (
               <div className="space-y-4 text-xs">
                 <div className="space-y-1">
-                  <span className="font-bold uppercase tracking-wider text-indigo-900 block text-[11px]">
+                  <span className="font-bold uppercase tracking-wider text-indigo-400 block text-[11px]">
                     Technical Root Cause
                   </span>
-                  <p className="rounded-lg bg-white p-3 text-gray-700 leading-relaxed border border-indigo-100 shadow-xs">
+                  <p className="rounded-xl bg-slate-950 p-3 text-slate-300 leading-relaxed border border-slate-800">
                     {explanation.root_cause}
                   </p>
                 </div>
 
                 <div className="space-y-1">
-                  <span className="font-bold uppercase tracking-wider text-rose-900 block text-[11px]">
+                  <span className="font-bold uppercase tracking-wider text-rose-400 block text-[11px]">
                     Attack Vector & Exploitation
                   </span>
-                  <p className="rounded-lg bg-white p-3 text-gray-700 leading-relaxed border border-rose-100 shadow-xs">
+                  <p className="rounded-xl bg-slate-950 p-3 text-slate-300 leading-relaxed border border-slate-800">
                     {explanation.attack_vector}
                   </p>
                 </div>
 
                 <div className="space-y-1">
-                  <span className="font-bold uppercase tracking-wider text-amber-900 block text-[11px]">
+                  <span className="font-bold uppercase tracking-wider text-amber-400 block text-[11px]">
                     Potential Security Impact
                   </span>
-                  <p className="rounded-lg bg-white p-3 text-gray-700 leading-relaxed border border-amber-100 shadow-xs">
+                  <p className="rounded-xl bg-slate-950 p-3 text-slate-300 leading-relaxed border border-slate-800">
                     {explanation.impact}
                   </p>
                 </div>
 
                 <div className="space-y-1">
-                  <span className="font-bold uppercase tracking-wider text-emerald-900 block text-[11px]">
+                  <span className="font-bold uppercase tracking-wider text-emerald-400 block text-[11px]">
                     Remediation Strategy
                   </span>
-                  <p className="rounded-lg bg-white p-3 text-gray-700 leading-relaxed border border-emerald-100 shadow-xs">
+                  <p className="rounded-xl bg-slate-950 p-3 text-slate-300 leading-relaxed border border-slate-800">
                     {explanation.recommendation}
                   </p>
                 </div>
               </div>
             ) : (
               <div className="text-center py-6 space-y-2">
-                <Shield className="mx-auto h-8 w-8 text-indigo-300" />
-                <p className="text-xs text-indigo-900 font-semibold">Deep AI Analysis Available</p>
-                <p className="text-[11px] text-gray-500">
+                <Shield className="mx-auto h-8 w-8 text-indigo-400/50" />
+                <p className="text-xs text-white font-semibold">Deep AI Analysis Available</p>
+                <p className="text-[11px] text-slate-400">
                   Click &quot;Explain Finding&quot; to unpack root cause, attack vector, and recommended defensive strategies.
                 </p>
               </div>
@@ -505,12 +505,12 @@ export default function FindingDetailPage() {
           </div>
 
           {/* Verification Protocol Info Card */}
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-900 flex items-center gap-1.5">
-              <FlaskConical className="h-4 w-4 text-emerald-600" />
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 space-y-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-1.5">
+              <FlaskConical className="h-4 w-4 text-emerald-400" />
               Empirical Verification Policy
             </h4>
-            <p className="text-xs text-gray-600 leading-relaxed">
+            <p className="text-xs text-slate-400 leading-relaxed">
               DefenderAI never auto-applies AI patches to your source code. Every patch is verified in an isolated,
               ephemeral sandbox copy and re-scanned to ensure 0 remaining vulnerabilities before you approve.
             </p>
