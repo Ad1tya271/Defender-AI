@@ -3,8 +3,8 @@
 import { FormEvent, useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Shield, Lock, Mail, ArrowRight, Sparkles, CheckCircle2, AlertTriangle, Key } from "lucide-react";
-import { login, register } from "@/lib/api";
+import { Shield, Lock, Mail, ArrowRight, Sparkles, CheckCircle2, AlertTriangle, Key, Clock } from "lucide-react";
+import { login, register, isTokenExpired } from "@/lib/api";
 
 function LoginForm() {
   const router = useRouter();
@@ -24,11 +24,13 @@ function LoginForm() {
     }
   }, [searchParams]);
 
-  // If already logged in, redirect straight to dashboard
+  // If already logged in with a valid non-expired token, redirect straight to dashboard
   useEffect(() => {
     const token = localStorage.getItem("access_token");
-    if (token) {
+    if (token && !isTokenExpired(token)) {
       router.push("/dashboard");
+    } else if (token) {
+      localStorage.removeItem("access_token");
     }
   }, [router]);
 
@@ -143,6 +145,16 @@ function LoginForm() {
               : "Set up your secure local security analyst account in seconds."}
           </p>
         </div>
+
+        {searchParams.get("expired") === "true" && !error && (
+          <div className="mb-5 flex items-start gap-2.5 rounded-xl bg-amber-950/50 border border-amber-500/30 p-3.5 text-xs text-amber-300">
+            <Clock className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+            <div>
+              <span className="font-semibold block text-amber-200">Session Expired</span>
+              <span>Your security session has expired. Please sign in again to continue.</span>
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="mb-5 flex items-start gap-2 rounded-xl bg-rose-950/40 border border-rose-500/30 p-3.5 text-xs text-rose-300">

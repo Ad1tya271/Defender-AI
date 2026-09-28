@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { isTokenExpired } from "@/lib/api";
 import {
   Shield,
   ShieldCheck,
@@ -185,12 +186,17 @@ export default function HomePage() {
   // FAQ Accordion state
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
-  // Auth token status
+  // Auth token status with expiration check
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("access_token");
-    setIsLoggedIn(Boolean(token));
+    if (token && !isTokenExpired(token)) {
+      setIsLoggedIn(true);
+    } else {
+      if (token) localStorage.removeItem("access_token");
+      setIsLoggedIn(false);
+    }
   }, []);
 
   // Handle running interactive sandbox simulation
@@ -262,29 +268,40 @@ export default function HomePage() {
             </a>
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {isLoggedIn ? (
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition"
-              >
-                <span>Console Dashboard</span>
-                <ArrowRight className="h-4 w-4" />
-              </Link>
+              <>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem("access_token");
+                    setIsLoggedIn(false);
+                  }}
+                  className="rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition"
+                >
+                  Sign Out
+                </button>
+                <Link
+                  href="/dashboard"
+                  className="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl bg-indigo-600 px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition"
+                >
+                  <span>Console</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </>
             ) : (
               <>
                 <Link
                   href="/login"
-                  className="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-900 transition"
+                  className="rounded-xl border border-slate-700 bg-slate-900/80 px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white hover:bg-slate-800 hover:border-slate-500 transition shadow-sm"
                 >
                   Sign In
                 </Link>
                 <Link
-                  href="/register"
-                  className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition"
+                  href="/login?tab=register"
+                  className="inline-flex items-center gap-1 sm:gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-500 px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-md shadow-indigo-600/30 hover:opacity-95 transition"
                 >
-                  <span>Launch Platform</span>
-                  <ChevronRight className="h-4 w-4" />
+                  <span>Create Account</span>
+                  <ChevronRight className="h-3.5 w-3.5" />
                 </Link>
               </>
             )}
@@ -318,21 +335,21 @@ export default function HomePage() {
 
           {/* Hero CTAs */}
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+            <Link
+              href={isLoggedIn ? "/dashboard" : "/login"}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 px-6 py-3.5 text-base font-semibold text-white shadow-xl shadow-indigo-600/30 hover:from-indigo-500 hover:to-indigo-400 transition"
+            >
+              <Lock className="h-4 w-4" />
+              <span>{isLoggedIn ? "Open Security Console" : "Sign In to Platform"}</span>
+            </Link>
+
             <a
               href="#interactive-scanner"
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 px-6 py-3.5 text-base font-semibold text-white shadow-xl shadow-indigo-600/30 hover:from-indigo-500 hover:to-indigo-400 transition"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-6 py-3.5 text-base font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition backdrop-blur-sm"
             >
               <Play className="h-4 w-4 fill-white" />
               <span>Try Interactive Sandbox Demo</span>
             </a>
-
-            <Link
-              href={isLoggedIn ? "/dashboard" : "/login"}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-6 py-3.5 text-base font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition backdrop-blur-sm"
-            >
-              <Boxes className="h-4 w-4 text-slate-400" />
-              <span>Explore Projects Console</span>
-            </Link>
           </div>
 
           {/* Key Metrics Strip */}
