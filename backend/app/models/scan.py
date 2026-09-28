@@ -2,7 +2,7 @@ from sqlalchemy import Column, String, DateTime, ForeignKey, Integer, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.database.session import Base
 
@@ -85,8 +85,8 @@ class Scan(Base):
     )
 
     created_at = Column(
-        DateTime,
-        default=datetime.utcnow
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc)
     )
 
     project = relationship(

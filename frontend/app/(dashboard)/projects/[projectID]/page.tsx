@@ -19,6 +19,7 @@ import {
   type FindingExplanation,
   type RemediationSuggestion,
 } from "@/lib/api";
+import RemediationManager from "@/components/RemediationManager";
 
 interface Project {
   id: string;
@@ -1520,35 +1521,14 @@ export default function ProjectPage() {
                       </div>
                     )}
 
-                    {/* AI Remediation */}
-                    {remediation && (
-                      <div className="space-y-3 rounded-lg border border-emerald-200 bg-emerald-50 p-5">
-                        <p className="text-sm font-semibold text-emerald-900">
-                          AI Suggested Fix
-                        </p>
-
-                        <p className="text-sm text-emerald-900">
-                          {remediation.explanation}
-                        </p>
-
-                        {remediation.patch ? (
-                          <pre className="mt-2 overflow-x-auto rounded-lg bg-gray-950 p-4 text-xs leading-6 text-gray-100">
-                            <code>{remediation.patch}</code>
-                          </pre>
-                        ) : (
-                          <p className="text-xs italic text-emerald-700">
-                            No patch was provided — this
-                            suggestion requires manual review.
-                          </p>
-                        )}
-
-                        <p className="text-xs text-emerald-700">
-                          This patch is AI-generated and has
-                          not been applied. Review it carefully
-                          before making any changes yourself.
-                        </p>
-                      </div>
-                    )}
+                    {/* Remediation & Verification Pipeline */}
+                    <RemediationManager
+                      findingId={selectedFinding.id}
+                      projectId={projectId}
+                      findingTitle={selectedFinding.title}
+                      filePath={selectedFinding.file_path}
+                      suggestedRemediation={remediation}
+                    />
 
                   </div>
                 )}

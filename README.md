@@ -1,219 +1,230 @@
 # DefenderAI
 
-**AI-Powered Software Security Analysis and Remediation Platform**
-Final Year B.Tech Engineering Project — Information Technology
+**AI-Assisted Software Security Analysis, Remediation & Verification Platform**  
+*Local-First Privacy · Cloud-Ready Multi-Tenancy · Hybrid Enterprise Scalability*
 
-DefenderAI is a unified platform that lets developers upload a source code project, scan it for security vulnerabilities and vulnerable dependencies, and (in progress) get AI-assisted explanations and remediation suggestions for what's found — with every AI-generated fix independently re-verified rather than trusted blindly.
+[![Tests](https://img.shields.io/badge/pytest-33%20passed-emerald)](file:///c:/Users/Aditya/DefenderAI/backend)
+[![Next.js](https://img.shields.io/badge/next.js-16.3.6-black)](file:///c:/Users/Aditya/DefenderAI/frontend)
+[![Python](https://img.shields.io/badge/python-3.12-blue)](file:///c:/Users/Aditya/DefenderAI/backend)
+[![Docker](https://img.shields.io/badge/docker-compose%20ready-blue)](file:///c:/Users/Aditya/DefenderAI/docker-compose.yml)
+
+DefenderAI is a production-oriented application security analysis and remediation platform that combines static application security testing (SAST via **Semgrep**), software composition analysis (SCA via **Trivy**), and local AI-assisted code remediation (via **Ollama `qwen2.5-coder:7b`**). 
+
+Unlike conventional AI tools that blindly trust generated fixes, DefenderAI enforces an **empirical verification policy**: proposed code fixes are tested inside an isolated, ephemeral sandbox directory and re-scanned by independent security engines before any changes can be applied to real source code.
 
 ---
 
 ## Table of Contents
 
-- [Problem Statement](#problem-statement)
-- [Architecture](#architecture)
+- [Core Capabilities](#core-capabilities)
+- [System Architecture & Execution Modes](#system-architecture--execution-modes)
+- [Verified Remediation & Patch Pipeline](#verified-remediation--patch-pipeline)
+- [Hybrid Local Agent Architecture](#hybrid-local-agent-architecture)
 - [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-- [API Overview](#api-overview)
-- [Team](#team)
-- [Roadmap](#roadmap)
+- [Quickstart: Local Windows Setup](#quickstart-local-windows-setup)
+- [Quickstart: Docker Compose](#quickstart-docker-compose)
+- [Automated Test Suite](#automated-test-suite)
+- [Documentation Index](#documentation-index)
 
 ---
 
-## Problem Statement
+## Core Capabilities
 
-Developers routinely introduce security vulnerabilities through insecure coding practices, vulnerable third-party dependencies, and lack of security expertise. Existing static analysis and dependency-scanning tools surface these issues but often produce output that is difficult for non-specialists to interpret and act on.
-
-DefenderAI combines traditional security scanning (SAST + SCA) with a locally hosted AI assistant that explains findings in plain language and proposes remediation — while keeping a hard separation between **what a scanner found**, **what the AI claims**, and **what has actually been verified**. An AI-suggested fix is never presented as correct or secure merely because the AI produced it; every proposed fix must pass an independent re-scan before it is considered resolved.
-
----
-
-## Architecture
-
-```
-                         ┌─────────────────┐
-                         │   Next.js UI     │
-                         │  (frontend/)     │
-                         └────────┬─────────┘
-                                  │ REST (JWT auth)
-                                  ▼
-                         ┌─────────────────┐
-                         │   FastAPI API    │
-                         │   (backend/)     │
-                         └────────┬─────────┘
-                    ┌─────────────┼─────────────┐
-                    ▼             ▼             ▼
-            ┌───────────┐  ┌───────────┐  ┌───────────┐
-            │ PostgreSQL │  │  Semgrep  │  │   Trivy   │
-            │ (via SQLA) │  │  (SAST)   │  │   (SCA)   │
-            └───────────┘  └───────────┘  └───────────┘
-
-            Planned:  FastAPI ──▶ Ollama (local LLM) ──▶ explain / remediate
-                      FastAPI ──▶ Docker (isolated verification workspace)
-```
-
-### Data Flow (current)
-
-1. User registers/logs in → receives a JWT
-2. User creates a project, uploads a `.zip` archive
-3. Archive is extracted into an isolated per-project workspace (`scan-workspaces/{project_id}/source`), with zip-slip path validation
-4. User triggers a scan → Semgrep and/or Trivy run against the workspace as a subprocess (argument-list invocation, 5-minute timeout, no shell interpolation)
-5. Raw scanner output is parsed and normalized into a common `Finding` schema, stored against the `Scan` record
-6. Severity counts and a computed security score are rolled up onto the `Scan`
-7. Findings are retrievable with filtering (severity, scanner, keyword search) and on-demand code-snippet extraction around the flagged lines
-
-### Data Flow (planned)
-
-8. User requests an AI explanation of a finding → local Ollama model receives finding + code context, returns a structured explanation
-9. User requests a remediation suggestion → AI returns a proposed patch, assumptions, and side effects (Pydantic-validated, never auto-applied)
-10. User approves a patch → it is applied only to an isolated working copy, re-scanned, and the before/after findings are compared to produce a verification status (e.g. *verified reduction*, *still detected*, *new findings introduced*)
+1. **Dual-Engine Security Scanning:**
+   - **SAST (Semgrep):** Code injection (SQLi, XSS, Command Injection), unsafe deserialization, hardcoded secrets, and taint tracking with CWE & OWASP metadata tagging.
+   - **SCA (Trivy):** Dependency CVE vulnerabilities, fixed package versions, and infrastructure-as-code (IaC) misconfigurations.
+2. **Local AI Vulnerability Intelligence:**
+   - Deep explanation of root cause, attack vectors, and exploit impact using local Ollama (`qwen2.5-coder:7b`) with prompt-injection defense delimiters (`<UNTRUSTED_SOURCE_SNIPPET>`).
+   - Generates contextual, syntactically correct unified diff patches.
+3. **Interactive Patch Diff Viewer & Governance:**
+   - Full dark-mode unified diff viewer with addition/deletion counters, dual line numbering, and hunk indicators.
+   - Formal proposal review workflow: `proposed` → `approved` → `verified` → `applied` (or `rejected` / `rolled_back`).
+4. **Isolated Ephemeral Sandbox Verification:**
+   - Patches are applied to an ephemeral working copy (`scan-workspaces/{project_id}/verification-workspaces/{proposal_id}`) without touching the primary project source.
+   - Automated re-scanning computes before/after finding differentials (`verified_fixed`, `still_vulnerable`, or `new_findings_introduced`).
+5. **Safe Source Code Application with Instant Rollback:**
+   - Requires explicit approval and successful prior verification.
+   - Creates timestamped safety backups (`.defenderai_bak_{timestamp}`) before modifying files.
+   - Supports one-click rollback restoring the original files.
+6. **Multi-Tenant Isolation & Rate Limiting:**
+   - Strict cross-tenant access boundaries enforced across projects, scans, findings, and proposals.
+   - Sliding-window rate limiting protecting against login brute-forcing and scan compute abuse.
+   - Immutable audit logging (`audit_events` table).
 
 ---
 
-## Tech Stack
+## System Architecture & Execution Modes
 
-**Backend**
-- Python 3.12, FastAPI, Pydantic / Pydantic Settings
-- SQLAlchemy + Alembic (PostgreSQL)
-- `passlib[bcrypt]` for password hashing, `python-jose` for JWT
-- Semgrep (SAST) and Trivy (SCA/dependency scanning) as subprocess-invoked scanners
+```mermaid
+graph TD
+    subgraph Client Interface
+        UI[Next.js 16 Web Dashboard]
+        CLI[Hybrid Local Runner CLI]
+    end
 
-**Frontend**
-- Next.js (App Router), React, TypeScript, Tailwind CSS
+    subgraph Platform Services
+        GATEWAY[FastAPI Gateway]
+        AUTH[Auth & Rate Limiting]
+        VERIFIER[Ephemeral Sandbox Verifier]
+        AUDIT[Audit Event Logger]
+    end
 
-**Planned**
-- Ollama for local LLM inference (finding explanation + remediation)
-- Docker for isolated scan/verification workspaces
+    subgraph Security Scanners
+        SEMGREP[Semgrep SAST]
+        TRIVY[Trivy SCA & Misconfig]
+    end
 
-**Infrastructure**
-- PostgreSQL 18 (local, dev)
-- Git / GitHub
+    subgraph AI Inference
+        OLLAMA[Local Ollama: qwen2.5-coder:7b]
+    end
 
----
+    subgraph Persistence
+        DB[(PostgreSQL 16)]
+        WS[Encrypted / Ephemeral Workspaces]
+    end
 
-## Project Structure
-
-```
-DefenderAI/
-├── backend/
-│   ├── app/
-│   │   ├── main.py                 # FastAPI app entrypoint
-│   │   ├── core/                   # config, security (JWT, hashing)
-│   │   ├── api/                    # auth, projects, scans, findings routers
-│   │   ├── models/                 # SQLAlchemy models (User, Project, Scan, Finding)
-│   │   ├── schemas/                # Pydantic request/response schemas
-│   │   ├── database/               # SQLAlchemy session/engine setup
-│   │   └── services/
-│   │       └── scanners/           # semgrep_scanner.py, trivy_scanner.py
-│   ├── alembic/                    # DB migrations
-│   ├── tests/                      # test suite
-│   ├── requirements.txt
-│   └── .env.example
-│
-├── frontend/
-│   ├── app/                        # Next.js App Router pages
-│   ├── components/                 # Sidebar, Logo, etc.
-│   ├── lib/                        # API client (lib/api.ts)
-│   └── ...
-│
-├── docker/                          # (planned) isolation configs
-├── docs/                            # (planned) architecture docs, diagrams
-└── README.md
+    UI -->|JWT REST| AUTH
+    CLI -->|X-Agent-Key| AUTH
+    AUTH --> GATEWAY
+    GATEWAY --> AUDIT
+    AUDIT --> DB
+    GATEWAY --> DB
+    GATEWAY --> WS
+    GATEWAY --> VERIFIER
+    VERIFIER --> WS
+    VERIFIER --> SEMGREP
+    VERIFIER --> TRIVY
+    GATEWAY --> SEMGREP
+    GATEWAY --> TRIVY
+    GATEWAY --> OLLAMA
 ```
 
+### Three Execution Modes
+- **Local Mode (Default):** Everything (backend, frontend, database, scanners, and AI) runs on developer hardware. Zero proprietary code leaves `localhost`.
+- **Cloud Mode:** Centralized web dashboard with hosted PostgreSQL and multi-tenant project isolation.
+- **Hybrid Agent Mode:** Enterprise runner runs on developer machines or CI/CD pipelines inside a corporate firewall, executing scans locally and transmitting only normalized finding metadata to the cloud gateway. **Zero source code transmitted.**
+
 ---
 
-## Getting Started
+## Verified Remediation & Patch Pipeline
 
-### Prerequisites
+```
+  AI Fix Suggestion
+          │
+          ▼
+┌──────────────────┐
+│ Formal Proposal  │ ── Status: proposed
+└─────────┬────────┘
+          │ (User Click: Verify Patch)
+          ▼
+┌────────────────────────────────────────────────────────┐
+│           Ephemeral Verification Sandbox               │
+│  1. Clone project source to ephemeral directory        │
+│  2. Apply unified diff safely (path traversal check)   │
+│  3. Re-run Semgrep / Trivy on modified working copy    │
+│  4. Differential Finding Analysis                      │
+│  5. Clean up ephemeral sandbox directory               │
+└─────────────────────────┬──────────────────────────────┘
+                          │
+          ┌───────────────┴───────────────┐
+          ▼                               ▼
+ [verified_fixed]              [still_vulnerable / regression]
+          │                               │
+          │ (User Click: Approve)         └─▶ Iteration / Manual Review
+          ▼
+┌──────────────────┐
+│  Approved State  │
+└─────────┬────────┘
+          │ (User Click: Apply to Codebase)
+          ▼
+┌────────────────────────────────────────────────────────┐
+│              Controlled Codebase Application           │
+│  1. Create timestamped backup file (.defenderai_bak)   │
+│  2. Apply patch to primary project workspace           │
+│  3. Update proposal status to 'applied'                │
+│  4. Enable instant rollback if needed                  │
+└────────────────────────────────────────────────────────┘
+```
 
-- Python 3.12
-- PostgreSQL 16+ (developed against 18)
-- Node.js 20+ (for the frontend)
-- [Semgrep](https://semgrep.dev/) (`pip install semgrep`)
-- [Trivy](https://github.com/aquasecurity/trivy) (standalone binary)
+---
 
-### Backend Setup
+## Quickstart: Local Windows Setup
+
+For full details, consult the [Windows Runbook](file:///c:/Users/Aditya/DefenderAI/docs/RUNBOOK_WINDOWS.md).
+
+### 1. Prerequisites
+- Python 3.12 (64-bit), Node.js 20 LTS, PostgreSQL 15+, Ollama, Semgrep, Trivy.
+
+### 2. Start Database & AI
+```powershell
+# Verify PostgreSQL is running
+Get-Service postgresql*
+
+# Launch Ollama and load model
+ollama serve
+ollama pull qwen2.5-coder:7b
+```
+
+### 3. Start Backend API
+```powershell
+cd backend
+.\venv\Scripts\Activate.ps1
+alembic upgrade head
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+Health & Swagger Documentation:
+- API Health: http://127.0.0.1:8000/api/health
+- Swagger UI: http://127.0.0.1:8000/docs
+
+### 4. Start Frontend
+```powershell
+cd frontend
+npm run dev
+```
+Dashboard available at **http://localhost:3000**.
+
+---
+
+## Quickstart: Docker Compose
+
+For containerized multi-service deployment, consult the [Docker Guide](file:///c:/Users/Aditya/DefenderAI/docker/README.md).
+
+```bash
+# Build and launch PostgreSQL, Backend, and Frontend containers
+docker compose up -d --build
+
+# View container logs
+docker compose logs -f backend
+```
+
+---
+
+## Automated Test Suite
+
+DefenderAI includes 33 automated tests covering the entire security pipeline:
 
 ```powershell
 cd backend
-python -m venv venv
-.\venv\Scripts\Activate
-pip install -r requirements.txt
-pip install semgrep
-
-# Create backend/.env from .env.example and fill in:
-#   DATABASE_URL, OLLAMA_BASE_URL, OLLAMA_MODEL, SECRET_KEY
-
-alembic upgrade head
-uvicorn app.main:app --reload
+.\venv\Scripts\Activate.ps1
+pytest -v
 ```
 
-API docs available at `http://localhost:8000/docs`.
-
-### Frontend Setup
-
-```powershell
-cd frontend
-npm install
-npm run dev
-```
-
-App available at `http://localhost:3000`.
-
----
-
-## API Overview
-
-| Method | Endpoint | Description |
+| Test Suite | Purpose | Tests |
 |---|---|---|
-| POST | `/api/auth/register` | Register a new user |
-| POST | `/api/auth/login` | Log in, receive JWT |
-| POST | `/api/projects` | Create a project |
-| GET | `/api/projects` | List your projects |
-| GET | `/api/projects/{id}` | Get project details |
-| GET | `/api/projects/{id}/stats` | Project rollup (scans, scores, findings) |
-| DELETE | `/api/projects/{id}` | Delete a project |
-| POST | `/api/projects/{id}/upload` | Upload a `.zip` source archive |
-| POST | `/api/projects/{id}/scans` | Trigger a scan (`?scanner=all\|semgrep\|trivy`) |
-| GET | `/api/projects/{id}/scans` | List scans for a project |
-| GET | `/api/projects/{id}/scans/{scan_id}` | Get a specific scan |
-| DELETE | `/api/scans/{scan_id}` | Delete a scan and its findings |
-| GET | `/api/scans/{scan_id}/findings` | List findings (filterable by severity/scanner/search) |
-| GET | `/api/findings/{id}` | Finding detail, including extracted code snippet |
-| GET | `/api/findings/{id}/snippet` | Just the code snippet for a finding |
-
-Full interactive documentation (Swagger UI) is generated automatically by FastAPI at `/docs` once the backend is running.
+| `test_health_and_config.py` | Config parsing, DB connection, health diagnostics | 3 |
+| `test_scanners_and_normalization.py` | Semgrep & Trivy parsers, zip-bomb defenses, scans endpoint | 7 |
+| `test_ai_provider.py` | AI abstraction protocol, Ollama & Mock providers, guardrails | 6 |
+| `test_verification_and_remediation.py` | Diff applier, sandbox isolation, verification statuses, apply/rollback | 7 |
+| `test_multi_tenant_and_auth_hardening.py` | Password validation, rate limiting, cross-tenant isolation | 6 |
+| `test_hybrid_agent.py` | Agent key hashing, heartbeat gateway, zero-source ingestion | 3 |
+| `test_e2e_pipeline.py` | Complete end-to-end integration across all subsystems | 1 |
+| **Total** | **Comprehensive Full System Coverage** | **33 Passing** |
 
 ---
 
-## Team
+## Documentation Index
 
-| Role | Focus |
-|---|---|
-| Dev A | Backend & database — FastAPI, PostgreSQL, auth, project/scan management |
-| Dev B | Security scanning & AI integration — Semgrep, Trivy, findings pipeline |
-| Dev C | Frontend — Next.js UI, dashboard, project views |
-
----
-
-## Roadmap
-
-- [ ] Wire frontend to scan/findings/upload APIs
-- [ ] Ollama integration — finding explanation endpoint
-- [ ] AI-assisted remediation suggestion endpoint (structured, never auto-applied)
-- [ ] Patch review UI (diff view, approve/reject)
-- [ ] Secure verification workflow (isolated patch application → re-scan → before/after comparison)
-- [ ] Docker-based scan isolation
-- [ ] Expanded automated test coverage
-- [ ] Architecture diagrams and final report documentation
-
----
-
-## Security Notes
-
-- Passwords are hashed with bcrypt; plaintext passwords are never stored.
-- Authentication uses stateless JWTs (24-hour expiry); there is currently no server-side revocation mechanism.
-- Uploaded archives are extracted with explicit zip-slip path validation to prevent writing outside the intended workspace.
-- Scanners are invoked via subprocess argument lists (never shell string concatenation) with a hard execution timeout.
-- AI-generated remediation (once implemented) will never be applied automatically — all patches require explicit user review and are only ever applied to an isolated working copy pending independent re-scan verification.
+- [System Architecture & Design Specification](file:///c:/Users/Aditya/DefenderAI/docs/ARCHITECTURE.md)
+- [Windows 11 Native Runbook](file:///c:/Users/Aditya/DefenderAI/docs/RUNBOOK_WINDOWS.md)
+- [Hybrid Agent Protocol & Zero-Source Specification](file:///c:/Users/Aditya/DefenderAI/docs/HYBRID_AGENT_SPEC.md)
+- [Docker Deployment & Containerization Guide](file:///c:/Users/Aditya/DefenderAI/docker/README.md)

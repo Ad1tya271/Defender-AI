@@ -131,6 +131,17 @@ export async function createScan(
   return handleResponse(response);
 }
 
+export async function getAllScans(token: string): Promise<Scan[]> {
+  const response = await fetch(`${API_URL}/api/scans`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return handleResponse(response);
+}
+
 export async function getScans(
   token: string,
   projectId: string
@@ -354,6 +365,197 @@ export async function remediateFinding(
 
   return handleResponse(response);
 }
+
+// =========================
+// Remediation Proposals & Verification
+// =========================
+
+export type VerificationResult = {
+  id: string;
+  remediation_id: string;
+  status: "verified_fixed" | "still_vulnerable" | "new_findings_introduced" | "failed";
+  original_findings_count: number;
+  remaining_findings_count: number;
+  new_findings_count: number;
+  scanner: string;
+  details?: string | null;
+  created_at: string;
+};
+
+export type RemediationProposal = {
+  id: string;
+  finding_id: string;
+  user_id: string;
+  explanation: string;
+  patch: string;
+  status: "proposed" | "approved" | "rejected" | "applied";
+  target_file?: string | null;
+  created_at: string;
+  updated_at: string;
+  verifications?: VerificationResult[];
+};
+
+export async function createRemediationProposal(
+  token: string,
+  findingId: string,
+  data: { explanation: string; patch: string; target_file?: string }
+): Promise<RemediationProposal> {
+  const response = await fetch(`${API_URL}/api/findings/${findingId}/proposals`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  return handleResponse(response);
+}
+
+export async function getFindingProposals(
+  token: string,
+  findingId: string
+): Promise<RemediationProposal[]> {
+  const response = await fetch(`${API_URL}/api/findings/${findingId}/proposals`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return handleResponse(response);
+}
+
+export async function getProjectRemediations(
+  token: string,
+  projectId: string
+): Promise<RemediationProposal[]> {
+  const response = await fetch(`${API_URL}/api/projects/${projectId}/remediations`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return handleResponse(response);
+}
+
+export async function getRemediationDetail(
+  token: string,
+  proposalId: string
+): Promise<RemediationProposal> {
+  const response = await fetch(`${API_URL}/api/remediations/${proposalId}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return handleResponse(response);
+}
+
+export async function approveRemediation(
+  token: string,
+  proposalId: string
+): Promise<RemediationProposal> {
+  const response = await fetch(`${API_URL}/api/remediations/${proposalId}/approve`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return handleResponse(response);
+}
+
+export async function rejectRemediation(
+  token: string,
+  proposalId: string
+): Promise<RemediationProposal> {
+  const response = await fetch(`${API_URL}/api/remediations/${proposalId}/reject`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return handleResponse(response);
+}
+
+export async function verifyRemediation(
+  token: string,
+  proposalId: string
+): Promise<VerificationResult> {
+  const response = await fetch(`${API_URL}/api/remediations/${proposalId}/verify`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return handleResponse(response);
+}
+
+export async function applyRemediation(
+  token: string,
+  proposalId: string
+): Promise<{ proposal_id: string; status: string; modified_files: string[]; backups: string[] }> {
+  const response = await fetch(`${API_URL}/api/remediations/${proposalId}/apply`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return handleResponse(response);
+}
+
+export async function rollbackRemediation(
+  token: string,
+  proposalId: string
+): Promise<{ proposal_id: string; status: string; restored_files: string[] }> {
+  const response = await fetch(`${API_URL}/api/remediations/${proposalId}/rollback`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return handleResponse(response);
+}
+
+// =========================
+// System Health & Diagnostics
+// =========================
+
+export type SystemHealth = {
+  status: "ok" | "degraded";
+  execution_mode: string;
+  app_env: string;
+  timestamp: string;
+  database: {
+    connected: boolean;
+    latency_ms: number | null;
+    error: string | null;
+  };
+  ai_service: {
+    reachable: boolean;
+    base_url: string;
+    configured_model: string;
+    model_available: boolean;
+    available_models: string[];
+    error: string | null;
+  };
+  scanners: {
+    semgrep: {
+      installed: boolean;
+      path: string;
+    };
+    trivy: {
+      installed: boolean;
+      path: string;
+    };
+  };
+};
+
+export async function getSystemHealth(): Promise<SystemHealth> {
+  const response = await fetch(`${API_URL}/api/health`, {
+    method: "GET",
+  });
+  return handleResponse(response);
+}
+
 export async function saveSnippet(
   token: string,
   projectId: string,

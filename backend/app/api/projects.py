@@ -8,7 +8,9 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.config import settings
 from app.database.session import get_db
+from app.models.audit import AuditEvent
 from app.models.project import Project
 from app.models.scan import Scan
 from app.models.user import User
@@ -95,6 +97,26 @@ def get_project_stats(
     return ProjectStatsResponse(**stats)
 
 
+@router.put("/{project_id}", response_model=ProjectResponse)
+def update_project(
+    project_id: UUID,
+    project_in: ProjectCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if project.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this project")
+
+    project.name = project_in.name
+    project.description = project_in.description
+    db.commit()
+    db.refresh(project)
+    return project
+
+
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(
     project_id: UUID,
@@ -117,6 +139,11 @@ def delete_project(
     return None
 
 
+MAX_SNIPPET_CHARS = 200_000  # ~200KB of pasted text
+MAX_ARCHIVE_FILES = 10_000
+MAX_UNCOMPRESSED_BYTES = 250_000_000  # 250 MB max extracted
+
+
 @router.post("/{project_id}/upload", status_code=status.HTTP_200_OK)
 def upload_project_archive(
     project_id: UUID,
@@ -130,38 +157,100 @@ def upload_project_archive(
     if project.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to upload to this project")
 
-    if not file.filename.endswith(".zip"):
+    if not file.filename or not file.filename.lower().endswith(".zip"):
         raise HTTPException(status_code=400, detail="Only .zip files are accepted")
 
     project_workspace = WORKSPACE_ROOT / str(project_id)
 
     # Clean any previous upload for this project
     if project_workspace.exists():
-        shutil.rmtree(project_workspace)
+        shutil.rmtree(project_workspace, ignore_errors=True)
     project_workspace.mkdir(parents=True, exist_ok=True)
 
     zip_path = project_workspace / "upload.zip"
-    with open(zip_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    total_bytes = 0
+
+    try:
+        with open(zip_path, "wb") as buffer:
+            while chunk := file.file.read(65536):
+                total_bytes += len(chunk)
+                if total_bytes > settings.MAX_UPLOAD_SIZE_BYTES:
+                    buffer.close()
+                    zip_path.unlink(missing_ok=True)
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"Uploaded archive exceeds maximum size of {settings.MAX_UPLOAD_SIZE_BYTES // (1024 * 1024)} MB",
+                    )
+                buffer.write(chunk)
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise
+        zip_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail=f"Failed to save upload archive: {str(e)}")
 
     extract_path = project_workspace / "source"
     extract_path.mkdir(exist_ok=True)
 
     try:
         with zipfile.ZipFile(zip_path, "r") as zip_ref:
-            for member in zip_ref.namelist():
-                member_path = extract_path / member
-                # Zip-slip protection: reject anything that escapes extract_path
-                if not str(member_path.resolve()).startswith(str(extract_path.resolve())):
-                    raise HTTPException(status_code=400, detail="Unsafe path detected in archive")
-            zip_ref.extractall(extract_path)
-    except zipfile.BadZipFile:
-        raise HTTPException(status_code=400, detail="Uploaded file is not a valid zip archive")
+            infolist = zip_ref.infolist()
 
-    zip_path.unlink()  # remove the raw zip, keep only extracted source
+            # Zip bomb checks
+            if len(infolist) > MAX_ARCHIVE_FILES:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Archive contains too many files ({len(infolist)} > {MAX_ARCHIVE_FILES})",
+                )
+
+            cumulative_uncompressed = sum(info.file_size for info in infolist)
+            if cumulative_uncompressed > MAX_UNCOMPRESSED_BYTES:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Archive uncompressed size exceeds limit ({cumulative_uncompressed} bytes > {MAX_UNCOMPRESSED_BYTES} bytes)",
+                )
+
+            resolved_extract = extract_path.resolve()
+
+            for info in infolist:
+                raw_name = info.filename
+                # Disallow drive letters or rooted paths
+                if raw_name.startswith(("/", "\\")) or (len(raw_name) > 1 and raw_name[1] == ":"):
+                    raise HTTPException(status_code=400, detail="Unsafe absolute path detected in archive")
+
+                # Disallow traversal parts
+                path_parts = Path(raw_name).parts
+                if ".." in path_parts:
+                    raise HTTPException(status_code=400, detail="Path traversal component detected in archive")
+
+                member_target = (extract_path / raw_name).resolve()
+                if not str(member_target).startswith(str(resolved_extract)):
+                    raise HTTPException(status_code=400, detail="Unsafe path detected in archive")
+
+            zip_ref.extractall(extract_path)
+
+    except zipfile.BadZipFile:
+        zip_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail="Uploaded file is not a valid zip archive")
+    except Exception as e:
+        zip_path.unlink(missing_ok=True)
+        if isinstance(e, HTTPException):
+            raise
+        raise HTTPException(status_code=500, detail=f"Archive extraction failed: {str(e)}")
+
+    zip_path.unlink(missing_ok=True)  # remove raw zip, keep only extracted source
+
+    # Audit log event
+    audit_event = AuditEvent(
+        user_id=current_user.id,
+        action="project_archive_uploaded",
+        resource_type="project",
+        resource_id=str(project.id),
+        details=f"Uploaded {file.filename} ({total_bytes} bytes)",
+    )
+    db.add(audit_event)
+    db.commit()
 
     return {"message": "Upload successful", "extracted_to": str(extract_path)}
-MAX_SNIPPET_CHARS = 200_000  # ~200KB of pasted text, generous for a single-file snippet
 
 
 @router.post("/{project_id}/snippet", status_code=status.HTTP_200_OK)
@@ -204,6 +293,17 @@ def save_code_snippet(
         raise HTTPException(status_code=400, detail="Invalid filename")
 
     target_path.write_text(body.code, encoding="utf-8")
+
+    # Audit log event
+    audit_event = AuditEvent(
+        user_id=current_user.id,
+        action="snippet_saved",
+        resource_type="project",
+        resource_id=str(project.id),
+        details=f"Saved snippet '{safe_name}' ({len(body.code)} chars)",
+    )
+    db.add(audit_event)
+    db.commit()
 
     return {
         "message": "Snippet saved. Run a scan on this project to analyze it.",

@@ -8,16 +8,18 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.database.session import get_db
+from app.models.audit import AuditEvent
 from app.models.finding import Finding
 from app.models.project import Project
 from app.models.scan import Scan
 from app.models.user import User
 from app.schemas.finding import FindingDetailResponse, FindingResponse
-from app.services.ai.ollama_service import (
+from app.services.ai.base import (
+    BaseAIProvider,
     FindingExplanation,
     RemediationSuggestion,
-    ollama_service,
 )
+from app.services.ai.factory import get_ai_provider
 
 
 router = APIRouter(tags=["findings"])
@@ -337,8 +339,9 @@ def explain_finding(
     finding_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    ai_provider: BaseAIProvider = Depends(get_ai_provider),
 ):
-    """Use local Ollama AI to explain a security finding."""
+    """Use configured AI provider to explain a security finding."""
 
     finding = (
         db.query(Finding)
@@ -390,10 +393,21 @@ def explain_finding(
         )
 
     try:
-        explanation = ollama_service.explain_finding(
+        explanation = ai_provider.explain_finding(
             finding=finding,
             code_snippet=snippet,
         )
+
+        db.add(
+            AuditEvent(
+                user_id=current_user.id,
+                action="finding_explained",
+                resource_type="finding",
+                resource_id=str(finding.id),
+                details=f"Explained '{finding.title}' via {ai_provider.__class__.__name__}",
+            )
+        )
+        db.commit()
 
         return explanation
 
@@ -422,8 +436,9 @@ def remediate_finding(
     finding_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    ai_provider: BaseAIProvider = Depends(get_ai_provider),
 ):
-    """Use local Ollama AI to generate a remediation suggestion."""
+    """Use configured AI provider to generate a remediation suggestion."""
 
     finding = (
         db.query(Finding)
@@ -475,10 +490,21 @@ def remediate_finding(
         )
 
     try:
-        remediation = ollama_service.suggest_remediation(
+        remediation = ai_provider.suggest_remediation(
             finding=finding,
             code_snippet=snippet,
         )
+
+        db.add(
+            AuditEvent(
+                user_id=current_user.id,
+                action="remediation_suggested",
+                resource_type="finding",
+                resource_id=str(finding.id),
+                details=f"Suggested fix for '{finding.title}' via {ai_provider.__class__.__name__}",
+            )
+        )
+        db.commit()
 
         return remediation
 

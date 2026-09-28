@@ -123,7 +123,46 @@ def test_full_pipeline():
     assert stats["high_count"] >= 2
     assert stats["total_findings"] >= 2
 
-    # 11. Test Scan Deletion
+    # 11. Test Remediation Proposal, Verification & Controlled Application
+    proposal_patch = """--- a/app/vulnerable.py
++++ b/app/vulnerable.py
+@@ -5,3 +5,3 @@
+-    query = 'SELECT * FROM users WHERE id = ' + user_id
+-    cursor.execute(query)
++    query = 'SELECT * FROM users WHERE id = ?'
++    cursor.execute(query, (user_id,))
+"""
+    res_prop = client.post(
+        f"/api/findings/{semgrep_finding['id']}/proposals",
+        json={"explanation": "Use parameterized query", "patch": proposal_patch, "target_file": "app/vulnerable.py"},
+        headers=headers,
+    )
+    assert res_prop.status_code == 201
+    prop_id = res_prop.json()["id"]
+
+    # Verify patch in isolated ephemeral working copy
+    res_ver = client.post(f"/api/remediations/{prop_id}/verify", headers=headers)
+    assert res_ver.status_code == 200
+    ver_data = res_ver.json()
+    assert ver_data["status"] == "verified_fixed"
+
+    # Approve proposal
+    res_app = client.post(f"/api/remediations/{prop_id}/approve", headers=headers)
+    assert res_app.status_code == 200
+    assert res_app.json()["status"] == "approved"
+
+    # Apply verified patch to source directory (creates backup)
+    res_apply = client.post(f"/api/remediations/{prop_id}/apply", headers=headers)
+    assert res_apply.status_code == 200
+    assert res_apply.json()["status"] == "applied"
+    assert len(res_apply.json()["backups"]) == 1
+
+    # Rollback patch from backup
+    res_rb = client.post(f"/api/remediations/{prop_id}/rollback", headers=headers)
+    assert res_rb.status_code == 200
+    assert res_rb.json()["status"] == "rolled_back"
+
+    # 12. Test Scan Deletion
     res_del_scan = client.delete(f"/api/scans/{scan_id}", headers=headers)
     assert res_del_scan.status_code == 204
 
@@ -131,4 +170,8 @@ def test_full_pipeline():
     res_after_del = client.get(f"/api/scans/{scan_id}/findings", headers=headers)
     assert res_after_del.status_code == 404
 
-    print("\n--- All Comprehensive API & Multi-Scanner Tests Passed Cleanly ---")
+    # 13. Clean up project
+    res_del_proj = client.delete(f"/api/projects/{project_id}", headers=headers)
+    assert res_del_proj.status_code == 204
+
+    print("\n--- All Comprehensive API, Multi-Scanner, Verification & Remediation Tests Passed Cleanly ---")

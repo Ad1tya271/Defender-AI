@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 from uuid import UUID
@@ -7,7 +7,9 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.rate_limiter import scan_rate_limiter
 from app.database.session import get_db
+from app.models.audit import AuditEvent
 from app.models.finding import Finding
 from app.models.project import Project
 from app.models.scan import Scan
@@ -27,6 +29,8 @@ def create_scan(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    scan_rate_limiter.check(str(current_user.id))
+
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -56,9 +60,18 @@ def create_scan(
         project_id=project.id,
         status="running",
         scanner=selected_scanner,
-        started_at=datetime.utcnow(),
+        started_at=datetime.now(timezone.utc),
     )
     db.add(scan)
+    db.add(
+        AuditEvent(
+            user_id=current_user.id,
+            action="scan_started",
+            resource_type="scan",
+            resource_id=str(scan.id),
+            details=f"Scanner: {selected_scanner}, Project: {project.name}",
+        )
+    )
     db.commit()
     db.refresh(scan)
 
@@ -83,8 +96,17 @@ def create_scan(
 
     if errors and not raw_findings and selected_scanner != "all":
         scan.status = "failed"
-        scan.completed_at = datetime.utcnow()
+        scan.completed_at = datetime.now(timezone.utc)
         scan.summary = " | ".join(errors)
+        db.add(
+            AuditEvent(
+                user_id=current_user.id,
+                action="scan_failed",
+                resource_type="scan",
+                resource_id=str(scan.id),
+                details=scan.summary,
+            )
+        )
         db.commit()
         raise HTTPException(status_code=500, detail=scan.summary)
 
@@ -114,11 +136,35 @@ def create_scan(
     scan.total_findings = total
     scan.security_score = score
     scan.summary = summary_text
-    scan.completed_at = datetime.utcnow()
+    scan.completed_at = datetime.now(timezone.utc)
 
+    db.add(
+        AuditEvent(
+            user_id=current_user.id,
+            action="scan_completed",
+            resource_type="scan",
+            resource_id=str(scan.id),
+            details=f"Findings: {total} (C:{critical} H:{high} M:{medium} L:{low}), Score: {score}",
+        )
+    )
     db.commit()
     db.refresh(scan)
     return scan
+
+
+@router.get("/api/scans", response_model=List[ScanResponse])
+def list_all_user_scans(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Lists all scans across all projects owned by the current user."""
+    return (
+        db.query(Scan)
+        .join(Project, Scan.project_id == Project.id)
+        .filter(Project.owner_id == current_user.id)
+        .order_by(Scan.created_at.desc())
+        .all()
+    )
 
 
 @router.get("/api/projects/{project_id}/scans", response_model=List[ScanResponse])
@@ -173,6 +219,15 @@ def delete_scan(
 
     # Cascade delete findings
     db.query(Finding).filter(Finding.scan_id == scan_id).delete()
+    db.add(
+        AuditEvent(
+            user_id=current_user.id,
+            action="scan_deleted",
+            resource_type="scan",
+            resource_id=str(scan_id),
+            details=f"Project: {project.name}",
+        )
+    )
     db.delete(scan)
     db.commit()
     return None

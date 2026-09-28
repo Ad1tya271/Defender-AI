@@ -2,50 +2,26 @@ import json
 import re
 import urllib.error
 import urllib.request
-from typing import Any
+from typing import Any, Dict
 
-from pydantic import BaseModel, Field
+from app.core.config import settings
+from app.services.ai.base import (
+    BaseAIProvider,
+    FindingExplanation,
+    RemediationSuggestion,
+    sanitize_untrusted_input,
+)
 
-
-OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
-OLLAMA_MODEL = "qwen2.5-coder:7b"
-
-
-# ============================================================
-# RESPONSE SCHEMAS
-# ============================================================
-
-
-class FindingExplanation(BaseModel):
-    root_cause: str = Field(
-        description="Technical root cause of the vulnerability"
-    )
-    attack_vector: str = Field(
-        description="How an attacker could exploit the vulnerability"
-    )
-    impact: str = Field(
-        description="Potential security impact"
-    )
-    recommendation: str = Field(
-        description="Recommended way to fix the vulnerability"
-    )
-
-
-class RemediationSuggestion(BaseModel):
-    explanation: str = Field(
-        description="Explanation of the recommended remediation"
-    )
-    patch: str = Field(
-        description="Validated unified diff patch"
-    )
+OLLAMA_URL = f"{settings.OLLAMA_BASE_URL.rstrip('/')}/api/chat"
+OLLAMA_MODEL = settings.OLLAMA_MODEL
 
 
 # ============================================================
-# OLLAMA SERVICE
+# OLLAMA PROVIDER
 # ============================================================
 
 
-class OllamaService:
+class OllamaProvider(BaseAIProvider):
     """Service for interacting with the local Ollama model."""
 
     def __init__(
@@ -55,6 +31,36 @@ class OllamaService:
     ):
         self.url = url
         self.model = model
+
+    def check_availability(self) -> Dict[str, Any]:
+        """Check if Ollama is reachable and configured model is present."""
+        base_url = self.url.split("/api/")[0]
+        try:
+            req = urllib.request.Request(
+                f"{base_url}/api/tags",
+                headers={"User-Agent": "DefenderAI-OllamaProvider"},
+            )
+            with urllib.request.urlopen(req, timeout=3.0) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                models = [m.get("name", "") for m in data.get("models", [])]
+                model_ready = any(self.model in m for m in models)
+                return {
+                    "reachable": True,
+                    "base_url": base_url,
+                    "configured_model": self.model,
+                    "model_available": model_ready,
+                    "available_models": models,
+                    "error": None,
+                }
+        except Exception as e:
+            return {
+                "reachable": False,
+                "base_url": base_url,
+                "configured_model": self.model,
+                "model_available": False,
+                "available_models": [],
+                "error": str(e),
+            }
 
     # ========================================================
     # OLLAMA CHAT
@@ -98,7 +104,7 @@ class OllamaService:
         try:
             with urllib.request.urlopen(
                 request,
-                timeout=180,
+                timeout=settings.AI_TIMEOUT_SECONDS,
             ) as response:
                 response_data = json.loads(
                     response.read().decode("utf-8")
@@ -1173,7 +1179,8 @@ Do not replace one database library or framework with another.
 
 
 # ============================================================
-# SERVICE INSTANCE
+# SERVICE INSTANCE AND ALIASES
 # ============================================================
 
-ollama_service = OllamaService()
+OllamaService = OllamaProvider
+ollama_service = OllamaProvider()
